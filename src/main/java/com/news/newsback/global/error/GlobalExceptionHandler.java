@@ -1,4 +1,59 @@
 package com.news.newsback.global.error;
-//@RestControllerAdvice
+
+import com.news.newsback.global.common.ApiResponse;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@Slf4j
+@RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
+        log.error("BusinessException: {}", e.getMessage());
+        ErrorCode errorCode = e.getErrorCode();
+        return ResponseEntity
+            .status(errorCode.status())
+            .body(ApiResponse.error(errorCode.message()));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(IllegalArgumentException e) {
+        log.error("IllegalArgumentException: {}", e.getMessage());
+        return ResponseEntity
+            .badRequest()
+            .body(ApiResponse.error(e.getMessage()));
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationException(
+            MethodArgumentNotValidException e) {
+        Map<String, String> errors = new HashMap<>();
+        e.getBindingResult().getAllErrors().forEach(error -> {
+            String fieldName = ((FieldError) error).getField();
+            String errorMessage = error.getDefaultMessage();
+            errors.put(fieldName, errorMessage);
+        });
+
+        log.error("Validation failed: {}", errors);
+        return ResponseEntity
+            .badRequest()
+            .body(ApiResponse.error("입력값 검증 실패", errors));
+    }
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnexpectedException(Exception e) {
+        log.error("Unexpected error occurred", e);
+        return ResponseEntity
+            .internalServerError()
+            .body(ApiResponse.error("서버 내부 오류가 발생했습니다"));
+    }
 }

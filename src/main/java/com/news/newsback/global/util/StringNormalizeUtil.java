@@ -1,4 +1,16 @@
 package com.news.newsback.global.util;
-//키워드 문자열 정규화 처리
+
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
+
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class StringNormalizeUtil {
+
+    public static String normalizeEmail(String email) {
+        if (email == null) {
+            return null;
+        }
+        return email.trim().toLowerCase();
+    }
+
 }
