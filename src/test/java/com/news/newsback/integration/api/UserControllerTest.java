@@ -6,6 +6,8 @@ import com.news.newsback.domain.user.api.UserController;
 import com.news.newsback.domain.user.api.UserRequest;
 import com.news.newsback.domain.user.application.UserService;
 import com.news.newsback.domain.user.domain.User;
+import com.news.newsback.domain.user.domain.UserErrorCode;
+import com.news.newsback.global.error.BusinessException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Tag;
@@ -49,6 +51,15 @@ class UserControllerTest {
             String email = "test@example.com";
             String password = "password123";
             UserRequest.Signup request = new UserRequest.Signup(email, password);
+
+            User mockUser = User.builder()
+                .id(1L)
+                .email("test@example.com")
+                .password("encodedPassword")
+                .socialProvider("LOCAL")
+                .build();
+
+            given(userService.signup(anyString(), anyString())).willReturn(mockUser);
 
             // when & then
             mockMvc.perform(post("/auth/signup")
@@ -97,7 +108,7 @@ class UserControllerTest {
             UserRequest.Signup request = new UserRequest.Signup(email, password);
 
             given(userService.signup(anyString(), anyString()))
-                .willThrow(new IllegalArgumentException("이미 존재하는 이메일입니다."));
+                .willThrow(new BusinessException(UserErrorCode.EMAIL_ALREADY_EXISTS));
 
             // when & then
             mockMvc.perform(post("/auth/signup")

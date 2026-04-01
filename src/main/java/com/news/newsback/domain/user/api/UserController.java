@@ -1,6 +1,7 @@
 package com.news.newsback.domain.user.api;
 
 import com.news.newsback.domain.user.application.UserService;
+import com.news.newsback.domain.user.domain.User;
 import com.news.newsback.global.common.ApiResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +19,12 @@ public class UserController {
     public ResponseEntity<ApiResponse<UserResponse>> signUp(
             @Valid @RequestBody UserRequest.Signup request) {
 
-        throw new UnsupportedOperationException("구현 중");
+        User savedUser = userService.signup(request.getEmail(), request.getPassword());
+        UserResponse response = UserResponse.from(savedUser);
+
+        return ResponseEntity
+            .status(201)
+            .body(ApiResponse.success(response));
     }
 
     @PostMapping("/login")
