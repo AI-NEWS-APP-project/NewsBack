@@ -15,14 +15,14 @@ public class User {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 255)
+    @Column(nullable = false, unique = true, length = 255)
     private String email;
 
     @Column(length = 255)
     private String password;
 
-    @Column(name = "social_provider", length = 20)
-    private String socialProvider; // "google", "kakao", null(일반 회원가입)
+    @Column(name = "social_provider", nullable = false, length = 20)
+    private String socialProvider; // "LOCAL", "GOOGLE", "KAKAO"
 
     @Column(name = "fcm_token", columnDefinition = "TEXT")
     private String fcmToken;
