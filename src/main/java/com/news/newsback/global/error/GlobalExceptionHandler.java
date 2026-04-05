@@ -17,24 +17,24 @@ import java.util.Map;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
-    public ResponseEntity<ApiResponse<Void>> handleBusinessException(BusinessException e) {
+    public ResponseEntity<ApiResponse<ErrorResponse>> handleBusinessException(BusinessException e) {
         log.error("BusinessException: {}", e.getMessage());
         ErrorCode errorCode = e.getErrorCode();
         return ResponseEntity
             .status(errorCode.status())
-            .body(ApiResponse.error(errorCode.message()));
+            .body(ApiResponse.error(errorCode.message(), ErrorResponse.from(errorCode)));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
-    public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(IllegalArgumentException e) {
+    public ResponseEntity<ApiResponse<ErrorResponse>> handleIllegalArgumentException(IllegalArgumentException e) {
         log.error("IllegalArgumentException: {}", e.getMessage());
         return ResponseEntity
             .badRequest()
-            .body(ApiResponse.error(e.getMessage()));
+            .body(ApiResponse.error(e.getMessage(), ErrorResponse.of("INVALID_ARGUMENT", e.getMessage(), HttpStatus.BAD_REQUEST.value())));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ApiResponse<Map<String, String>>> handleValidationException(
+    public ResponseEntity<ApiResponse<Map<String, Object>>> handleValidationException(
             MethodArgumentNotValidException e) {
         Map<String, String> errors = new HashMap<>();
         e.getBindingResult().getAllErrors().forEach(error -> {
@@ -43,17 +43,22 @@ public class GlobalExceptionHandler {
             errors.put(fieldName, errorMessage);
         });
 
+        Map<String, Object> data = new HashMap<>();
+        data.put("error", ErrorResponse.of("VALIDATION_ERROR", "입력값 검증 실패", HttpStatus.BAD_REQUEST.value()));
+        data.put("fields", errors);
+
         log.error("Validation failed: {}", errors);
         return ResponseEntity
             .badRequest()
-            .body(ApiResponse.error("입력값 검증 실패", errors));
+            .body(ApiResponse.error("입력값 검증 실패", data));
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ApiResponse<Void>> handleUnexpectedException(Exception e) {
+    public ResponseEntity<ApiResponse<ErrorResponse>> handleUnexpectedException(Exception e) {
         log.error("Unexpected error occurred", e);
         return ResponseEntity
             .internalServerError()
-            .body(ApiResponse.error("서버 내부 오류가 발생했습니다"));
+            .body(ApiResponse.error("서버 내부 오류가 발생했습니다",
+                ErrorResponse.of("INTERNAL_SERVER_ERROR", "서버 내부 오류가 발생했습니다", HttpStatus.INTERNAL_SERVER_ERROR.value())));
     }
 }
