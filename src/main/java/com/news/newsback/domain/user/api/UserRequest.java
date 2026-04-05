@@ -21,13 +21,36 @@ public class UserRequest {
         @Size(min = 8, message = "비밀번호는 최소 8자 이상이어야 합니다")
         private String password;
     }
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class Login {
+        @NotBlank(message = "이메일은 필수입니다")
+        @Email(message = "이메일 형식이 올바르지 않습니다")
+        private String email;
+
+        @NotBlank(message = "비밀번호는 필수입니다")
+        private String password;
+
+        private String fcmToken;
     }
 
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class SocialLogin {
+        @NotBlank(message = "소셜 토큰은 필수입니다")
+        private String socialToken;
+
+        private String fcmToken;
     }
 
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class Logout {
+        @NotBlank(message = "리프레시 토큰은 필수입니다")
+        private String refreshToken;
     }
 
 
