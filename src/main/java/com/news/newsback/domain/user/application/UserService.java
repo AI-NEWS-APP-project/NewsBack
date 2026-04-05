@@ -1,10 +1,18 @@
 package com.news.newsback.domain.user.application;
 
+import com.news.newsback.domain.user.api.AuthResponse;
+import com.news.newsback.domain.user.api.UserResponse;
+import com.news.newsback.domain.user.domain.RefreshToken;
+import com.news.newsback.domain.user.domain.RefreshTokenRepository;
+import com.news.newsback.domain.user.domain.SocialProvider;
 import com.news.newsback.domain.user.domain.User;
 import com.news.newsback.domain.user.domain.UserErrorCode;
 import com.news.newsback.domain.user.domain.UserRepository;
 import com.news.newsback.global.error.BusinessException;
+import com.news.newsback.global.util.JwtTokenProvider;
 import com.news.newsback.global.util.StringNormalizeUtil;
+import com.news.newsback.infra.ai.SocialAuthClient;
+import com.news.newsback.infra.ai.SocialUserInfo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -18,7 +26,10 @@ import java.util.regex.Pattern;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtTokenProvider jwtTokenProvider;
+    private final SocialAuthClient socialAuthClient;
 
     private static final Pattern EMAIL_PATTERN =
         Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
@@ -26,44 +37,134 @@ public class UserService {
 
     @Transactional
     public User signup(String email, String password) {
+        String normalizedEmail = StringNormalizeUtil.normalizeEmail(email);
+
         // 1. 이메일 형식 검증
-        validateEmailFormat(email);
+        validateEmailFormat(normalizedEmail);
 
         // 2. 비밀번호 검증
         validatePassword(password);
 
-        // 3. 이메일 정규화 (StringNormalizeUtil 사용)
-        String normalizedEmail = StringNormalizeUtil.normalizeEmail(email);
-
-        // 4. 이메일 중복 확인
-        if (userRepository.existsByEmail(normalizedEmail)) {
+        // 3. 이메일 중복 확인
+        if (userRepository.existsByEmailIgnoreCase(normalizedEmail)) {
             throw new BusinessException(UserErrorCode.EMAIL_ALREADY_EXISTS);
         }
 
-        // 5. 비밀번호 해시화
+        // 4. 비밀번호 해시화
         String encodedPassword = passwordEncoder.encode(password);
 
-        // 6. User 엔티티 생성 및 저장
+        // 5. User 엔티티 생성 및 저장
         User user = User.builder()
             .email(normalizedEmail)
             .password(encodedPassword)
+            .socialProvider(SocialProvider.LOCAL.name())
             .build();
 
         return userRepository.save(user);
     }
 
+    @Transactional
+    public AuthResponse login(String email, String password, String fcmToken) {
+        String normalizedEmail = StringNormalizeUtil.normalizeEmail(email);
+        User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
+            .orElseThrow(() -> new BusinessException(UserErrorCode.AUTH_INVALID_CREDENTIALS));
+
+        if (user.getPassword() == null || !passwordEncoder.matches(password, user.getPassword())) {
+            throw new BusinessException(UserErrorCode.AUTH_INVALID_CREDENTIALS);
+        }
+
+        user.updateFcmToken(fcmToken);
+        userRepository.save(user);
+
+        return issueTokens(user);
+    }
+
+    @Transactional
+    public AuthResponse socialLogin(String provider, String socialToken, String fcmToken) {
+        SocialProvider socialProvider = parseProvider(provider);
+        SocialUserInfo socialUserInfo;
+
+        try {
+            socialUserInfo = socialAuthClient.verify(socialProvider, socialToken);
+        } catch (Exception e) {
+            throw new BusinessException(UserErrorCode.AUTH_SOCIAL_TOKEN_INVALID, e);
+        }
+
+        String normalizedEmail = StringNormalizeUtil.normalizeEmail(socialUserInfo.email());
+        User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
+            .orElseGet(() -> userRepository.save(User.builder()
+                .email(normalizedEmail)
+                .password(null)
+                .socialProvider(socialProvider.name())
+                .globalPushEnabled(true)
+                .build()));
+
+        user.updateFcmToken(fcmToken);
+        userRepository.save(user);
+
+        return issueTokens(user);
+    }
+
+    @Transactional
+    public void logout(String refreshToken) {
+        try {
+            jwtTokenProvider.validateRefreshToken(refreshToken);
+        } catch (JwtTokenProvider.TokenExpiredException e) {
+            throw new BusinessException(UserErrorCode.AUTH_TOKEN_EXPIRED, e);
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException(UserErrorCode.AUTH_INVALID_TOKEN, e);
+        }
+
+        RefreshToken savedToken = refreshTokenRepository.findByToken(refreshToken).orElse(null);
+        if (savedToken == null) {
+            return;
+        }
+
+        User user = savedToken.getUser();
+        user.clearFcmToken();
+        userRepository.save(user);
+        refreshTokenRepository.delete(savedToken);
+    }
+
     private void validateEmailFormat(String email) {
         if (email == null || !EMAIL_PATTERN.matcher(email).matches()) {
-            throw new IllegalArgumentException("이메일 형식이 올바르지 않습니다");
+            throw new BusinessException(UserErrorCode.INVALID_EMAIL_FORMAT);
         }
     }
 
     private void validatePassword(String password) {
         if (password == null || password.isEmpty()) {
-            throw new IllegalArgumentException("비밀번호는 필수입니다");
+            throw new BusinessException(UserErrorCode.INVALID_PASSWORD);
         }
         if (password.length() < MIN_PASSWORD_LENGTH) {
-            throw new IllegalArgumentException("비밀번호는 최소 8자 이상이어야 합니다");
+            throw new BusinessException(UserErrorCode.PASSWORD_TOO_SHORT);
         }
+    }
+
+    private SocialProvider parseProvider(String provider) {
+        try {
+            SocialProvider socialProvider = SocialProvider.from(provider);
+            if (socialProvider == SocialProvider.LOCAL) {
+                throw new BusinessException(UserErrorCode.AUTH_PROVIDER_UNSUPPORTED);
+            }
+            return socialProvider;
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException(UserErrorCode.AUTH_PROVIDER_UNSUPPORTED, e);
+        }
+    }
+
+    private AuthResponse issueTokens(User user) {
+        JwtTokenProvider.JwtTokenPair tokenPair = jwtTokenProvider.issueTokens(user.getId(), user.getEmail());
+        refreshTokenRepository.save(RefreshToken.builder()
+            .user(user)
+            .token(tokenPair.refreshToken())
+            .expiresAt(tokenPair.refreshExpiresAt())
+            .build());
+
+        return AuthResponse.builder()
+            .accessToken(tokenPair.accessToken())
+            .refreshToken(tokenPair.refreshToken())
+            .user(UserResponse.from(user))
+            .build();
     }
 }
