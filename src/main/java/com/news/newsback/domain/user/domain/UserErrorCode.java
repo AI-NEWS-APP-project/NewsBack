@@ -8,6 +8,13 @@ public enum UserErrorCode implements ErrorCode {
     INVALID_PASSWORD("INVALID_PASSWORD", "비밀번호는 필수입니다.", 400),
     PASSWORD_TOO_SHORT("PASSWORD_TOO_SHORT", "비밀번호는 최소 8자 이상이어야 합니다.", 400),
 
+    // 인증 관련
+    AUTH_INVALID_CREDENTIALS("AUTH_INVALID_CREDENTIALS", "이메일 또는 비밀번호가 올바르지 않습니다.", 401),
+    AUTH_INVALID_TOKEN("AUTH_INVALID_TOKEN", "유효하지 않은 토큰입니다.", 401),
+    AUTH_TOKEN_EXPIRED("AUTH_TOKEN_EXPIRED", "만료된 토큰입니다.", 401),
+    AUTH_PROVIDER_UNSUPPORTED("AUTH_PROVIDER_UNSUPPORTED", "지원하지 않는 소셜 로그인 제공자입니다.", 400),
+    AUTH_SOCIAL_TOKEN_INVALID("AUTH_SOCIAL_TOKEN_INVALID", "유효하지 않은 소셜 토큰입니다.", 401),
+
     // 조회 관련
     USER_NOT_FOUND("USER_NOT_FOUND", "사용자를 찾을 수 없습니다.", 404);
 

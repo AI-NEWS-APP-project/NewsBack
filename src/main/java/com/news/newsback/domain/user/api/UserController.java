@@ -28,24 +28,24 @@ public class UserController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<UserResponse>> login(
+    public ResponseEntity<ApiResponse<AuthResponse>> login(
             @Valid @RequestBody UserRequest.Login request) {
-
-        throw new UnsupportedOperationException("구현 중");
+        AuthResponse response = userService.login(request.getEmail(), request.getPassword(), request.getFcmToken());
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    @PostMapping("social/{provider}")
-    public ResponseEntity<ApiResponse<UserResponse>> socialLogin(
+    @PostMapping("/social/{provider}")
+    public ResponseEntity<ApiResponse<AuthResponse>> socialLogin(
             @Valid @RequestBody UserRequest.SocialLogin request, @PathVariable String provider) {
-
-        throw new UnsupportedOperationException("구현 중");
+        AuthResponse response = userService.socialLogin(provider, request.getSocialToken(), request.getFcmToken());
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<UserResponse>> signup(
+    public ResponseEntity<ApiResponse<Void>> logout(
             @Valid @RequestBody UserRequest.Logout request) {
-
-        throw new UnsupportedOperationException("구현 중");
+        userService.logout(request.getRefreshToken());
+        return ResponseEntity.ok(ApiResponse.success());
     }
 
 
