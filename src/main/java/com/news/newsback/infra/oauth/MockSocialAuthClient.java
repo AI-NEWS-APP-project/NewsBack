@@ -1,11 +1,13 @@
-package com.news.newsback.infra.ai;
+package com.news.newsback.infra.oauth;
 
 import com.news.newsback.domain.user.domain.SocialProvider;
 import org.springframework.context.annotation.Primary;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 @Component
 @Primary
+@Profile("test")
 public class MockSocialAuthClient implements SocialAuthClient {
 
     @Override

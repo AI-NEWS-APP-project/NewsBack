@@ -11,9 +11,11 @@ import com.news.newsback.domain.user.domain.UserRepository;
 import com.news.newsback.global.error.BusinessException;
 import com.news.newsback.global.util.JwtTokenProvider;
 import com.news.newsback.global.util.StringNormalizeUtil;
-import com.news.newsback.infra.ai.SocialAuthClient;
-import com.news.newsback.infra.ai.SocialUserInfo;
-import lombok.RequiredArgsConstructor;
+import com.news.newsback.infra.oauth.SocialAuthClient;
+import com.news.newsback.infra.oauth.SocialAuthClientFactory;
+import com.news.newsback.infra.oauth.SocialUserInfo;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,7 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.regex.Pattern;
 
 @Service
-@RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserService {
 
@@ -29,7 +30,24 @@ public class UserService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
-    private final SocialAuthClient socialAuthClient;
+    private final SocialAuthClientFactory socialAuthClientFactory;
+    private final SocialAuthClient socialAuthClient; // For Mock in tests
+
+    public UserService(
+        UserRepository userRepository,
+        RefreshTokenRepository refreshTokenRepository,
+        PasswordEncoder passwordEncoder,
+        JwtTokenProvider jwtTokenProvider,
+        @Autowired(required = false) SocialAuthClientFactory socialAuthClientFactory,
+        @Autowired(required = false) @Qualifier("mockSocialAuthClient") SocialAuthClient socialAuthClient
+    ) {
+        this.userRepository = userRepository;
+        this.refreshTokenRepository = refreshTokenRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtTokenProvider = jwtTokenProvider;
+        this.socialAuthClientFactory = socialAuthClientFactory;
+        this.socialAuthClient = socialAuthClient;
+    }
 
     private static final Pattern EMAIL_PATTERN =
         Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
@@ -85,7 +103,15 @@ public class UserService {
         SocialUserInfo socialUserInfo;
 
         try {
-            socialUserInfo = socialAuthClient.verify(socialProvider, socialToken);
+            SocialAuthClient client = (socialAuthClientFactory != null)
+                ? socialAuthClientFactory.getClient(socialProvider)
+                : socialAuthClient;
+
+            if (client == null) {
+                throw new IllegalStateException("소셜 인증 클라이언트를 찾을 수 없습니다.");
+            }
+
+            socialUserInfo = client.verify(socialProvider, socialToken);
         } catch (Exception e) {
             throw new BusinessException(UserErrorCode.AUTH_SOCIAL_TOKEN_INVALID, e);
         }
