@@ -2,8 +2,6 @@ package com.news.newsback.unit.application.user;
 
 import com.news.newsback.domain.user.api.AuthResponse;
 import com.news.newsback.domain.user.application.UserService;
-import com.news.newsback.domain.user.domain.RefreshToken;
-import com.news.newsback.domain.user.domain.RefreshTokenRepository;
 import com.news.newsback.domain.user.domain.SocialProvider;
 import com.news.newsback.domain.user.domain.User;
 import com.news.newsback.domain.user.domain.UserErrorCode;
@@ -37,9 +35,6 @@ class UserServiceTest {
 
     @Mock
     private UserRepository userRepository;
-
-    @Mock
-    private RefreshTokenRepository refreshTokenRepository;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -123,8 +118,9 @@ class UserServiceTest {
         assertThat(response.getAccessToken()).isEqualTo("access");
         assertThat(response.getRefreshToken()).isEqualTo("refresh");
         assertThat(user.getFcmToken()).isEqualTo("fcm-token");
+        assertThat(user.getRefreshToken()).isEqualTo("refresh");
 
-        verify(refreshTokenRepository).save(any(RefreshToken.class));
+        verify(userRepository, atLeastOnce()).save(user);
     }
 
     @Test
@@ -162,7 +158,7 @@ class UserServiceTest {
         AuthResponse response = userService.socialLogin("google", "mock-valid:new@example.com", null);
 
         assertThat(response.getUser().getEmail()).isEqualTo("new@example.com");
-        verify(refreshTokenRepository).save(any(RefreshToken.class));
+        verify(userRepository, atLeastOnce()).save(any(User.class));
     }
 
     @Test
@@ -182,21 +178,17 @@ class UserServiceTest {
             .password("encoded")
             .socialProvider("LOCAL")
             .fcmToken("fcm-token")
-            .build();
-        RefreshToken token = RefreshToken.builder()
-            .id(1L)
-            .token("refresh-token")
-            .user(user)
-            .expiresAt(LocalDateTime.now().plusDays(14))
+            .refreshToken("refresh-token")
             .build();
 
         doNothing().when(jwtTokenProvider).validateRefreshToken("refresh-token");
-        when(refreshTokenRepository.findByToken("refresh-token")).thenReturn(Optional.of(token));
+        when(userRepository.findByRefreshToken("refresh-token")).thenReturn(Optional.of(user));
 
         userService.logout("refresh-token");
 
         assertThat(user.getFcmToken()).isNull();
-        verify(refreshTokenRepository).delete(token);
+        assertThat(user.getRefreshToken()).isNull();
+        verify(userRepository).save(user);
     }
 
     @Test

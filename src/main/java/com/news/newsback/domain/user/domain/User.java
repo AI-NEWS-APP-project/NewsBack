@@ -27,6 +27,9 @@ public class User {
     @Column(name = "fcm_token", columnDefinition = "TEXT")
     private String fcmToken;
 
+    @Column(name = "refresh_token", unique = true, length = 1024)
+    private String refreshToken;
+
     @Column(name = "global_push_enabled", nullable = false)
     @Builder.Default
     private Boolean globalPushEnabled = true;
@@ -47,6 +50,14 @@ public class User {
     // 비즈니스 로직: FCM 토큰 제거 (로그아웃)
     public void clearFcmToken() {
         this.fcmToken = null;
+    }
+
+    public void updateRefreshToken(String refreshToken) {
+        this.refreshToken = refreshToken;
+    }
+
+    public void clearRefreshToken() {
+        this.refreshToken = null;
     }
 
     // 비즈니스 로직: 전체 알림 설정 변경

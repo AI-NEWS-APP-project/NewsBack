@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS `users` (
     `password` VARCHAR(255) NULL COMMENT '소셜 가입자는 null',
     `social_provider` VARCHAR(20) NOT NULL COMMENT 'LOCAL, GOOGLE, KAKAO',
     `fcm_token` TEXT NULL COMMENT '로그아웃 시 NULL로 업데이트',
+    `refresh_token` VARCHAR(1024) NULL UNIQUE COMMENT '단일 세션용 refresh token',
     `global_push_enabled` BOOLEAN DEFAULT TRUE,
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
 );

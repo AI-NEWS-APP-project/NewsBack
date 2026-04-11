@@ -31,8 +31,12 @@ public class JwtTokenProvider {
     @Value("${jwt.refresh-token-expiration-days:14}")
     private long refreshTokenExpirationDays;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final ObjectMapper objectMapper;
     private byte[] secretKeyBytes;
+
+    public JwtTokenProvider(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     @PostConstruct
     void init() {
@@ -80,36 +84,38 @@ public class JwtTokenProvider {
     }
 
     private Map<String, Object> parseClaims(String token) {
+        String[] parts = token.split("\\.");
+        if (parts.length != 3) {
+            throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
+        }
+
+        String signedPart = parts[0] + "." + parts[1];
+        String expectedSignature = sign(signedPart);
+        if (!expectedSignature.equals(parts[2])) {
+            throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
+        }
+
+        Map<String, Object> claims;
         try {
-            String[] parts = token.split("\\.");
-            if (parts.length != 3) {
-                throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
-            }
-
-            String signedPart = parts[0] + "." + parts[1];
-            String expectedSignature = sign(signedPart);
-            if (!expectedSignature.equals(parts[2])) {
-                throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
-            }
-
-            Map<String, Object> claims = objectMapper.readValue(
-                base64UrlDecode(parts[1]),
-                new TypeReference<>() {
-                }
-            );
-
-            long exp = Long.parseLong(String.valueOf(claims.get("exp")));
-            long now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC);
-            if (now > exp) {
-                throw new TokenExpiredException("만료된 토큰입니다.");
-            }
-
-            return claims;
-        } catch (TokenExpiredException e) {
-            throw e;
+            claims = objectMapper.readValue(base64UrlDecode(parts[1]), new TypeReference<>() {
+            });
         } catch (Exception e) {
             throw new IllegalArgumentException("유효하지 않은 토큰입니다.", e);
         }
+
+        long exp;
+        try {
+            exp = Long.parseLong(String.valueOf(claims.get("exp")));
+        } catch (Exception e) {
+            throw new IllegalArgumentException("유효하지 않은 토큰입니다.", e);
+        }
+
+        long now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC);
+        if (now > exp) {
+            throw new TokenExpiredException("만료된 토큰입니다.");
+        }
+
+        return claims;
     }
 
     private void validateTokenType(Map<String, Object> claims, String expectedType) {

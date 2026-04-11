@@ -2,8 +2,6 @@ package com.news.newsback.domain.user.application;
 
 import com.news.newsback.domain.user.api.AuthResponse;
 import com.news.newsback.domain.user.api.UserResponse;
-import com.news.newsback.domain.user.domain.RefreshToken;
-import com.news.newsback.domain.user.domain.RefreshTokenRepository;
 import com.news.newsback.domain.user.domain.SocialProvider;
 import com.news.newsback.domain.user.domain.User;
 import com.news.newsback.domain.user.domain.UserErrorCode;
@@ -27,7 +25,6 @@ import java.util.regex.Pattern;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final SocialAuthClientFactory socialAuthClientFactory;
@@ -35,14 +32,12 @@ public class UserService {
 
     public UserService(
         UserRepository userRepository,
-        RefreshTokenRepository refreshTokenRepository,
         PasswordEncoder passwordEncoder,
         JwtTokenProvider jwtTokenProvider,
         @Autowired(required = false) SocialAuthClientFactory socialAuthClientFactory,
         @Autowired(required = false) @Qualifier("mockSocialAuthClient") SocialAuthClient socialAuthClient
     ) {
         this.userRepository = userRepository;
-        this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
         this.socialAuthClientFactory = socialAuthClientFactory;
@@ -141,15 +136,14 @@ public class UserService {
             throw new BusinessException(UserErrorCode.AUTH_INVALID_TOKEN, e);
         }
 
-        RefreshToken savedToken = refreshTokenRepository.findByToken(refreshToken).orElse(null);
-        if (savedToken == null) {
+        User user = userRepository.findByRefreshToken(refreshToken).orElse(null);
+        if (user == null) {
             return;
         }
 
-        User user = savedToken.getUser();
         user.clearFcmToken();
+        user.clearRefreshToken();
         userRepository.save(user);
-        refreshTokenRepository.delete(savedToken);
     }
 
     private void validateEmailFormat(String email) {
@@ -181,11 +175,8 @@ public class UserService {
 
     private AuthResponse issueTokens(User user) {
         JwtTokenProvider.JwtTokenPair tokenPair = jwtTokenProvider.issueTokens(user.getId(), user.getEmail());
-        refreshTokenRepository.save(RefreshToken.builder()
-            .user(user)
-            .token(tokenPair.refreshToken())
-            .expiresAt(tokenPair.refreshExpiresAt())
-            .build());
+        user.updateRefreshToken(tokenPair.refreshToken());
+        userRepository.save(user);
 
         return AuthResponse.builder()
             .accessToken(tokenPair.accessToken())
