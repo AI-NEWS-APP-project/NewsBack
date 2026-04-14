@@ -1,5 +1,7 @@
 package com.news.newsback.global.error;
 
+import com.news.newsback.domain.user.domain.UserErrorCode;
+import com.news.newsback.global.util.JwtTokenProvider;
 import com.news.newsback.global.common.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -31,6 +33,28 @@ public class GlobalExceptionHandler {
         return ResponseEntity
             .badRequest()
             .body(ApiResponse.error(e.getMessage(), ErrorResponse.of("INVALID_ARGUMENT", e.getMessage(), HttpStatus.BAD_REQUEST.value())));
+    }
+
+    @ExceptionHandler(JwtTokenProvider.TokenExpiredException.class)
+    public ResponseEntity<ApiResponse<ErrorResponse>> handleTokenExpiredException(JwtTokenProvider.TokenExpiredException e) {
+        log.error("TokenExpiredException: {}", e.getMessage());
+        return ResponseEntity
+            .status(UserErrorCode.AUTH_TOKEN_EXPIRED.status())
+            .body(ApiResponse.error(
+                UserErrorCode.AUTH_TOKEN_EXPIRED.message(),
+                ErrorResponse.from(UserErrorCode.AUTH_TOKEN_EXPIRED)
+            ));
+    }
+
+    @ExceptionHandler(JwtTokenProvider.InvalidTokenException.class)
+    public ResponseEntity<ApiResponse<ErrorResponse>> handleInvalidTokenException(JwtTokenProvider.InvalidTokenException e) {
+        log.error("InvalidTokenException: {}", e.getMessage());
+        return ResponseEntity
+            .status(UserErrorCode.AUTH_INVALID_TOKEN.status())
+            .body(ApiResponse.error(
+                UserErrorCode.AUTH_INVALID_TOKEN.message(),
+                ErrorResponse.from(UserErrorCode.AUTH_INVALID_TOKEN)
+            ));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)

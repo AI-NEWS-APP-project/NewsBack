@@ -70,7 +70,7 @@ public class UserService {
         User user = User.builder()
             .email(normalizedEmail)
             .password(encodedPassword)
-            .socialProvider(SocialProvider.LOCAL.name())
+            .socialProvider(SocialProvider.LOCAL)
             .build();
 
         return userRepository.save(user);
@@ -86,10 +86,7 @@ public class UserService {
             throw new BusinessException(UserErrorCode.AUTH_INVALID_CREDENTIALS);
         }
 
-        user.updateFcmToken(fcmToken);
-        userRepository.save(user);
-
-        return issueTokens(user);
+        return issueTokens(user, fcmToken);
     }
 
     @Transactional
@@ -116,34 +113,23 @@ public class UserService {
             .orElseGet(() -> userRepository.save(User.builder()
                 .email(normalizedEmail)
                 .password(null)
-                .socialProvider(socialProvider.name())
+                .socialProvider(socialProvider)
                 .globalPushEnabled(true)
                 .build()));
 
-        user.updateFcmToken(fcmToken);
-        userRepository.save(user);
-
-        return issueTokens(user);
+        return issueTokens(user, fcmToken);
     }
 
     @Transactional
     public void logout(String refreshToken) {
-        try {
-            jwtTokenProvider.validateRefreshToken(refreshToken);
-        } catch (JwtTokenProvider.TokenExpiredException e) {
-            throw new BusinessException(UserErrorCode.AUTH_TOKEN_EXPIRED, e);
-        } catch (IllegalArgumentException e) {
-            throw new BusinessException(UserErrorCode.AUTH_INVALID_TOKEN, e);
-        }
+        User user = validateRefreshTokenAndGetUser(refreshToken);
+        user.logout();
+    }
 
-        User user = userRepository.findByRefreshToken(refreshToken).orElse(null);
-        if (user == null) {
-            return;
-        }
-
-        user.clearFcmToken();
-        user.clearRefreshToken();
-        userRepository.save(user);
+    @Transactional
+    public AuthResponse refresh(String refreshToken) {
+        User user = validateRefreshTokenAndGetUser(refreshToken);
+        return issueTokens(user, user.getFcmToken());
     }
 
     private void validateEmailFormat(String email) {
@@ -173,15 +159,30 @@ public class UserService {
         }
     }
 
-    private AuthResponse issueTokens(User user) {
+    private AuthResponse issueTokens(User user, String fcmToken) {
         JwtTokenProvider.JwtTokenPair tokenPair = jwtTokenProvider.issueTokens(user.getId(), user.getEmail());
-        user.updateRefreshToken(tokenPair.refreshToken());
-        userRepository.save(user);
+        String hashedRefreshToken = passwordEncoder.encode(tokenPair.refreshToken());
+
+        // Last-login-wins policy: always rotate and overwrite the previous refresh token hash.
+        user.login(fcmToken, hashedRefreshToken);
 
         return AuthResponse.builder()
             .accessToken(tokenPair.accessToken())
             .refreshToken(tokenPair.refreshToken())
             .user(UserResponse.from(user))
             .build();
+    }
+
+    private User validateRefreshTokenAndGetUser(String refreshToken) {
+        Long userId = jwtTokenProvider.extractValidRefreshUserId(refreshToken);
+
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+
+        String storedHashedToken = user.getRefreshToken();
+        if (storedHashedToken == null || !passwordEncoder.matches(refreshToken, storedHashedToken)) {
+            throw new JwtTokenProvider.InvalidTokenException("유효하지 않은 토큰입니다.");
+        }
+        return user;
     }
 }

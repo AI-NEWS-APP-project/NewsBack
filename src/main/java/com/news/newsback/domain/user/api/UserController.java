@@ -48,6 +48,14 @@ public class UserController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    @Operation(summary = "토큰 재발급", description = "유효한 refresh token으로 access/refresh 토큰을 재발급합니다.", security = @SecurityRequirement(name = "jwtAuth"))
+    @PostMapping("/refresh")
+    public ResponseEntity<ApiResponse<AuthResponse>> refresh(
+            @Valid @RequestBody UserRequest.Refresh request) {
+        AuthResponse response = userService.refresh(request.getRefreshToken());
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
     @Operation(summary = "로그아웃", description = "리프레시 토큰을 무효화하고 로그아웃", security = @SecurityRequirement(name = "jwtAuth"))
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(

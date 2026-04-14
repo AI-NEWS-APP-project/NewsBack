@@ -21,13 +21,14 @@ public class User {
     @Column(length = 255)
     private String password;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "social_provider", nullable = false, length = 20)
-    private String socialProvider; // "LOCAL", "GOOGLE", "KAKAO"
+    private SocialProvider socialProvider;
 
     @Column(name = "fcm_token", columnDefinition = "TEXT")
     private String fcmToken;
 
-    @Column(name = "refresh_token", unique = true, length = 1024)
+    @Column(name = "refresh_token", length = 255)
     private String refreshToken;
 
     @Column(name = "global_push_enabled", nullable = false)
@@ -42,21 +43,21 @@ public class User {
         this.createdAt = java.time.LocalDateTime.now();
     }
 
-    // 비즈니스 로직: FCM 토큰 업데이트
+    public void login(String fcmToken, String hashedRefreshToken) {
+        this.fcmToken = fcmToken;
+        this.refreshToken = hashedRefreshToken;
+    }
+
     public void updateFcmToken(String fcmToken) {
         this.fcmToken = fcmToken;
     }
 
-    // 비즈니스 로직: FCM 토큰 제거 (로그아웃)
-    public void clearFcmToken() {
+    public void updateRefreshToken(String hashedToken) {
+        this.refreshToken = hashedToken;
+    }
+
+    public void logout() {
         this.fcmToken = null;
-    }
-
-    public void updateRefreshToken(String refreshToken) {
-        this.refreshToken = refreshToken;
-    }
-
-    public void clearRefreshToken() {
         this.refreshToken = null;
     }
 

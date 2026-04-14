@@ -54,15 +54,10 @@ public class JwtTokenProvider {
         return new JwtTokenPair(accessToken, refreshToken, refreshExpiresAt);
     }
 
-    public Long extractUserIdFromRefreshToken(String token) {
+    public Long extractValidRefreshUserId(String token) {
         Map<String, Object> claims = parseClaims(token);
         validateTokenType(claims, "REFRESH");
         return Long.valueOf(String.valueOf(claims.get("sub")));
-    }
-
-    public void validateRefreshToken(String token) {
-        Map<String, Object> claims = parseClaims(token);
-        validateTokenType(claims, "REFRESH");
     }
 
     private String buildToken(Long userId, String email, String tokenType, LocalDateTime expiresAt) {
@@ -86,13 +81,13 @@ public class JwtTokenProvider {
     private Map<String, Object> parseClaims(String token) {
         String[] parts = token.split("\\.");
         if (parts.length != 3) {
-            throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
+            throw new InvalidTokenException("유효하지 않은 토큰입니다.");
         }
 
         String signedPart = parts[0] + "." + parts[1];
         String expectedSignature = sign(signedPart);
         if (!expectedSignature.equals(parts[2])) {
-            throw new IllegalArgumentException("유효하지 않은 토큰입니다.");
+            throw new InvalidTokenException("유효하지 않은 토큰입니다.");
         }
 
         Map<String, Object> claims;
@@ -100,14 +95,14 @@ public class JwtTokenProvider {
             claims = objectMapper.readValue(base64UrlDecode(parts[1]), new TypeReference<>() {
             });
         } catch (Exception e) {
-            throw new IllegalArgumentException("유효하지 않은 토큰입니다.", e);
+            throw new InvalidTokenException("유효하지 않은 토큰입니다.", e);
         }
 
         long exp;
         try {
             exp = Long.parseLong(String.valueOf(claims.get("exp")));
         } catch (Exception e) {
-            throw new IllegalArgumentException("유효하지 않은 토큰입니다.", e);
+            throw new InvalidTokenException("유효하지 않은 토큰입니다.", e);
         }
 
         long now = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC);
@@ -121,7 +116,7 @@ public class JwtTokenProvider {
     private void validateTokenType(Map<String, Object> claims, String expectedType) {
         String tokenType = String.valueOf(claims.get(TOKEN_TYPE_CLAIM));
         if (!expectedType.equals(tokenType)) {
-            throw new IllegalArgumentException("토큰 타입이 올바르지 않습니다.");
+            throw new InvalidTokenException("토큰 타입이 올바르지 않습니다.");
         }
     }
 
@@ -160,6 +155,14 @@ public class JwtTokenProvider {
             super(message);
         }
     }
+
+    public static class InvalidTokenException extends RuntimeException {
+        public InvalidTokenException(String message) {
+            super(message);
+        }
+
+        public InvalidTokenException(String message, Throwable cause) {
+            super(message, cause);
+        }
+    }
 }
-
-

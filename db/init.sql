@@ -8,9 +8,9 @@ CREATE TABLE IF NOT EXISTS `users` (
     `password` VARCHAR(255) NULL COMMENT '소셜 가입자는 null',
     `social_provider` VARCHAR(20) NOT NULL COMMENT 'LOCAL, GOOGLE, KAKAO',
     `fcm_token` TEXT NULL COMMENT '로그아웃 시 NULL로 업데이트',
-    `refresh_token` VARCHAR(1024) NULL UNIQUE COMMENT '단일 세션용 refresh token',
-    `global_push_enabled` BOOLEAN DEFAULT TRUE,
-    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP
+    `refresh_token` VARCHAR(255) NULL COMMENT 'BCrypt 해시 refresh token (단일 세션, 재로그인 시 갱신)',
+    `global_push_enabled` BOOLEAN NOT NULL DEFAULT TRUE,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 2. Keywords Dictionary Table
@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS `keyword_news` (
     `keyword_id` BIGINT NOT NULL,
     `summary_text` TEXT NOT NULL,
     `summary_hash` VARCHAR(64) NULL COMMENT '이전 요약본과의 유사도 비교용',
+    `keyword_count` INT DEFAULT 1,
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT `fk_keyword_news_keyword` FOREIGN KEY (`keyword_id`) REFERENCES `keywords` (`id`) ON DELETE CASCADE
 );
@@ -97,3 +98,15 @@ CREATE INDEX idx_news_cluster_id ON news(cluster_id);
 CREATE INDEX idx_news_published_at ON news(published_at);
 CREATE INDEX idx_keyword_news_keyword_id ON keyword_news(keyword_id);
 CREATE INDEX idx_notification_history_user_id ON notification_history(user_id);
+
+-- Backfill / migration-safe alters for existing environments
+ALTER TABLE `users`
+    ADD COLUMN IF NOT EXISTS `refresh_token` VARCHAR(255) NULL COMMENT 'BCrypt 해시 refresh token (단일 세션, 재로그인 시 갱신)';
+ALTER TABLE `users`
+    MODIFY COLUMN `refresh_token` VARCHAR(255) NULL COMMENT 'BCrypt 해시 refresh token (단일 세션, 재로그인 시 갱신)';
+ALTER TABLE `users`
+    MODIFY COLUMN `global_push_enabled` BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE `users`
+    MODIFY COLUMN `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE `keyword_news`
+    ADD COLUMN IF NOT EXISTS `keyword_count` INT DEFAULT 1;
