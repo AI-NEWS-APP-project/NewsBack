@@ -7,6 +7,7 @@ import com.news.newsback.domain.user.api.UserController;
 import com.news.newsback.domain.user.api.UserRequest;
 import com.news.newsback.domain.user.api.UserResponse;
 import com.news.newsback.domain.user.application.UserService;
+import com.news.newsback.domain.user.domain.SocialProvider;
 import com.news.newsback.domain.user.domain.User;
 import com.news.newsback.domain.user.domain.UserErrorCode;
 import com.news.newsback.global.error.BusinessException;
@@ -60,7 +61,7 @@ class UserControllerTest {
                 .id(1L)
                 .email("test@example.com")
                 .password("encodedPassword")
-                .socialProvider("LOCAL")
+                .socialProvider(SocialProvider.LOCAL)
                 .build();
 
             given(userService.signup(anyString(), anyString())).willReturn(mockUser);
@@ -85,7 +86,7 @@ class UserControllerTest {
                 .id(1L)
                 .email("test@example.com")
                 .password("encodedPassword")
-                .socialProvider("LOCAL")
+                .socialProvider(SocialProvider.LOCAL)
                 .build();
 
             given(userService.signup(anyString(), anyString())).willReturn(mockUser);
@@ -196,7 +197,7 @@ class UserControllerTest {
                 .id(1L)
                 .email("test@example.com")
                 .password("encodedPassword")
-                .socialProvider("LOCAL")
+                .socialProvider(SocialProvider.LOCAL)
                 .build();
 
             given(userService.signup(anyString(), anyString())).willReturn(mockUser);
@@ -222,7 +223,7 @@ class UserControllerTest {
             User user = User.builder()
                 .id(1L)
                 .email("test@example.com")
-                .socialProvider("LOCAL")
+                .socialProvider(SocialProvider.LOCAL)
                 .fcmToken("new-fcm-token")
                 .globalPushEnabled(true)
                 .build();
@@ -294,7 +295,7 @@ class UserControllerTest {
             User user = User.builder()
                 .id(1L)
                 .email("test@example.com")
-                .socialProvider("GOOGLE")
+                .socialProvider(SocialProvider.GOOGLE)
                 .fcmToken("fcm-token")
                 .globalPushEnabled(true)
                 .build();
@@ -322,7 +323,7 @@ class UserControllerTest {
             User user = User.builder()
                 .id(2L)
                 .email("kakao@example.com")
-                .socialProvider("KAKAO")
+                .socialProvider(SocialProvider.KAKAO)
                 .globalPushEnabled(true)
                 .build();
             AuthResponse response = AuthResponse.builder()
@@ -355,6 +356,40 @@ class UserControllerTest {
                     .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.success").value(false));
+        }
+    }
+
+    @Nested
+    @DisplayName("토큰 재발급 API")
+    class RefreshApiTest {
+
+        @Test
+        @DisplayName("refresh 토큰으로 재발급 성공 - 200 OK")
+        void 토큰_재발급_성공() throws Exception {
+            UserRequest.Refresh request = new UserRequest.Refresh("refresh-token");
+
+            User user = User.builder()
+                .id(1L)
+                .email("test@example.com")
+                .socialProvider(SocialProvider.LOCAL)
+                .globalPushEnabled(true)
+                .build();
+
+            AuthResponse response = AuthResponse.builder()
+                .accessToken("new-access-token")
+                .refreshToken("new-refresh-token")
+                .user(UserResponse.from(user))
+                .build();
+
+            given(userService.refresh("refresh-token")).willReturn(response);
+
+            mockMvc.perform(post("/auth/refresh")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.accessToken").value("new-access-token"))
+                .andExpect(jsonPath("$.data.refreshToken").value("new-refresh-token"));
         }
     }
 

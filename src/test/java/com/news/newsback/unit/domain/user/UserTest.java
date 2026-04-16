@@ -1,6 +1,7 @@
 package com.news.newsback.unit.domain.user;
 
 import com.news.newsback.domain.user.domain.User;
+import com.news.newsback.domain.user.domain.SocialProvider;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -15,7 +16,7 @@ class UserTest {
         User user = User.builder()
             .email("test@example.com")
             .password("encoded")
-            .socialProvider("LOCAL")
+            .socialProvider(SocialProvider.LOCAL)
             .build();
 
         assertThat(user.getGlobalPushEnabled()).isTrue();
@@ -27,13 +28,13 @@ class UserTest {
         User user = User.builder()
             .email("test@example.com")
             .password("encoded")
-            .socialProvider("LOCAL")
+            .socialProvider(SocialProvider.LOCAL)
             .build();
 
         user.updateFcmToken("fcm-token");
         assertThat(user.getFcmToken()).isEqualTo("fcm-token");
 
-        user.clearFcmToken();
+        user.logout();
         assertThat(user.getFcmToken()).isNull();
     }
 
@@ -43,7 +44,7 @@ class UserTest {
         User user = User.builder()
             .email("test@example.com")
             .password("encoded")
-            .socialProvider("LOCAL")
+            .socialProvider(SocialProvider.LOCAL)
             .build();
 
         assertThat(user.canReceivePushNotification()).isFalse();
@@ -55,4 +56,3 @@ class UserTest {
         assertThat(user.canReceivePushNotification()).isFalse();
     }
 }
-

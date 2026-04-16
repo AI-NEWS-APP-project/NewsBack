@@ -2,8 +2,6 @@ package com.news.newsback.domain.user.application;
 
 import com.news.newsback.domain.user.api.AuthResponse;
 import com.news.newsback.domain.user.api.UserResponse;
-import com.news.newsback.domain.user.domain.RefreshToken;
-import com.news.newsback.domain.user.domain.RefreshTokenRepository;
 import com.news.newsback.domain.user.domain.SocialProvider;
 import com.news.newsback.domain.user.domain.User;
 import com.news.newsback.domain.user.domain.UserErrorCode;
@@ -27,7 +25,6 @@ import java.util.regex.Pattern;
 public class UserService {
 
     private final UserRepository userRepository;
-    private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final SocialAuthClientFactory socialAuthClientFactory;
@@ -35,14 +32,12 @@ public class UserService {
 
     public UserService(
         UserRepository userRepository,
-        RefreshTokenRepository refreshTokenRepository,
         PasswordEncoder passwordEncoder,
         JwtTokenProvider jwtTokenProvider,
         @Autowired(required = false) SocialAuthClientFactory socialAuthClientFactory,
         @Autowired(required = false) @Qualifier("mockSocialAuthClient") SocialAuthClient socialAuthClient
     ) {
         this.userRepository = userRepository;
-        this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
         this.socialAuthClientFactory = socialAuthClientFactory;
@@ -75,7 +70,7 @@ public class UserService {
         User user = User.builder()
             .email(normalizedEmail)
             .password(encodedPassword)
-            .socialProvider(SocialProvider.LOCAL.name())
+            .socialProvider(SocialProvider.LOCAL)
             .build();
 
         return userRepository.save(user);
@@ -91,10 +86,7 @@ public class UserService {
             throw new BusinessException(UserErrorCode.AUTH_INVALID_CREDENTIALS);
         }
 
-        user.updateFcmToken(fcmToken);
-        userRepository.save(user);
-
-        return issueTokens(user);
+        return issueTokens(user, fcmToken);
     }
 
     @Transactional
@@ -121,35 +113,23 @@ public class UserService {
             .orElseGet(() -> userRepository.save(User.builder()
                 .email(normalizedEmail)
                 .password(null)
-                .socialProvider(socialProvider.name())
+                .socialProvider(socialProvider)
                 .globalPushEnabled(true)
                 .build()));
 
-        user.updateFcmToken(fcmToken);
-        userRepository.save(user);
-
-        return issueTokens(user);
+        return issueTokens(user, fcmToken);
     }
 
     @Transactional
     public void logout(String refreshToken) {
-        try {
-            jwtTokenProvider.validateRefreshToken(refreshToken);
-        } catch (JwtTokenProvider.TokenExpiredException e) {
-            throw new BusinessException(UserErrorCode.AUTH_TOKEN_EXPIRED, e);
-        } catch (IllegalArgumentException e) {
-            throw new BusinessException(UserErrorCode.AUTH_INVALID_TOKEN, e);
-        }
+        User user = validateRefreshTokenAndGetUser(refreshToken);
+        user.logout();
+    }
 
-        RefreshToken savedToken = refreshTokenRepository.findByToken(refreshToken).orElse(null);
-        if (savedToken == null) {
-            return;
-        }
-
-        User user = savedToken.getUser();
-        user.clearFcmToken();
-        userRepository.save(user);
-        refreshTokenRepository.delete(savedToken);
+    @Transactional
+    public AuthResponse refresh(String refreshToken) {
+        User user = validateRefreshTokenAndGetUser(refreshToken);
+        return issueTokens(user, user.getFcmToken());
     }
 
     private void validateEmailFormat(String email) {
@@ -179,18 +159,30 @@ public class UserService {
         }
     }
 
-    private AuthResponse issueTokens(User user) {
+    private AuthResponse issueTokens(User user, String fcmToken) {
         JwtTokenProvider.JwtTokenPair tokenPair = jwtTokenProvider.issueTokens(user.getId(), user.getEmail());
-        refreshTokenRepository.save(RefreshToken.builder()
-            .user(user)
-            .token(tokenPair.refreshToken())
-            .expiresAt(tokenPair.refreshExpiresAt())
-            .build());
+        String hashedRefreshToken = passwordEncoder.encode(tokenPair.refreshToken());
+
+        // Last-login-wins policy: always rotate and overwrite the previous refresh token hash.
+        user.login(fcmToken, hashedRefreshToken);
 
         return AuthResponse.builder()
             .accessToken(tokenPair.accessToken())
             .refreshToken(tokenPair.refreshToken())
             .user(UserResponse.from(user))
             .build();
+    }
+
+    private User validateRefreshTokenAndGetUser(String refreshToken) {
+        Long userId = jwtTokenProvider.extractValidRefreshUserId(refreshToken);
+
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new BusinessException(UserErrorCode.USER_NOT_FOUND));
+
+        String storedHashedToken = user.getRefreshToken();
+        if (storedHashedToken == null || !passwordEncoder.matches(refreshToken, storedHashedToken)) {
+            throw new JwtTokenProvider.InvalidTokenException("유효하지 않은 토큰입니다.");
+        }
+        return user;
     }
 }

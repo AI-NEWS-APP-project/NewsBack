@@ -60,6 +60,16 @@ public class UserRequest {
     @Getter
     @NoArgsConstructor
     @AllArgsConstructor
+    @Schema(description = "토큰 재발급 요청")
+    public static class Refresh {
+        @NotBlank(message = "리프레시 토큰은 필수입니다")
+        @Schema(description = "재발급에 사용할 리프레시 토큰", example = "jwt_refresh_token_here")
+        private String refreshToken;
+    }
+
+    @Getter
+    @NoArgsConstructor
+    @AllArgsConstructor
     @Schema(description = "로그아웃 요청")
     public static class Logout {
         @NotBlank(message = "리프레시 토큰은 필수입니다")

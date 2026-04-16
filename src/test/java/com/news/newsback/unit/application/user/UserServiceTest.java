@@ -2,8 +2,6 @@ package com.news.newsback.unit.application.user;
 
 import com.news.newsback.domain.user.api.AuthResponse;
 import com.news.newsback.domain.user.application.UserService;
-import com.news.newsback.domain.user.domain.RefreshToken;
-import com.news.newsback.domain.user.domain.RefreshTokenRepository;
 import com.news.newsback.domain.user.domain.SocialProvider;
 import com.news.newsback.domain.user.domain.User;
 import com.news.newsback.domain.user.domain.UserErrorCode;
@@ -39,9 +37,6 @@ class UserServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private RefreshTokenRepository refreshTokenRepository;
-
-    @Mock
     private PasswordEncoder passwordEncoder;
 
     @Mock
@@ -67,7 +62,7 @@ class UserServiceTest {
 
         assertThat(saved.getEmail()).isEqualTo("test@example.com");
         assertThat(saved.getPassword()).isEqualTo("encoded");
-        assertThat(saved.getSocialProvider()).isEqualTo(SocialProvider.LOCAL.name());
+        assertThat(saved.getSocialProvider()).isEqualTo(SocialProvider.LOCAL);
 
         verify(userRepository).existsByEmailIgnoreCase("test@example.com");
         verify(passwordEncoder).encode(password);
@@ -108,7 +103,7 @@ class UserServiceTest {
             .id(1L)
             .email("test@example.com")
             .password("encoded")
-            .socialProvider("LOCAL")
+            .socialProvider(SocialProvider.LOCAL)
             .build();
 
         JwtTokenProvider.JwtTokenPair tokenPair =
@@ -117,14 +112,14 @@ class UserServiceTest {
         when(userRepository.findByEmailIgnoreCase("test@example.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("password123", "encoded")).thenReturn(true);
         when(jwtTokenProvider.issueTokens(1L, "test@example.com")).thenReturn(tokenPair);
+        when(passwordEncoder.encode("refresh")).thenReturn("hashed-refresh");
 
         AuthResponse response = userService.login("test@example.com", "password123", "fcm-token");
 
         assertThat(response.getAccessToken()).isEqualTo("access");
         assertThat(response.getRefreshToken()).isEqualTo("refresh");
         assertThat(user.getFcmToken()).isEqualTo("fcm-token");
-
-        verify(refreshTokenRepository).save(any(RefreshToken.class));
+        assertThat(user.getRefreshToken()).isEqualTo("hashed-refresh");
     }
 
     @Test
@@ -158,11 +153,12 @@ class UserServiceTest {
                 .build();
         });
         when(jwtTokenProvider.issueTokens(10L, "new@example.com")).thenReturn(tokenPair);
+        when(passwordEncoder.encode("refresh")).thenReturn("hashed-refresh");
 
         AuthResponse response = userService.socialLogin("google", "mock-valid:new@example.com", null);
 
         assertThat(response.getUser().getEmail()).isEqualTo("new@example.com");
-        verify(refreshTokenRepository).save(any(RefreshToken.class));
+        verify(userRepository, atLeastOnce()).save(any(User.class));
     }
 
     @Test
@@ -180,44 +176,66 @@ class UserServiceTest {
             .id(1L)
             .email("test@example.com")
             .password("encoded")
-            .socialProvider("LOCAL")
+            .socialProvider(SocialProvider.LOCAL)
             .fcmToken("fcm-token")
-            .build();
-        RefreshToken token = RefreshToken.builder()
-            .id(1L)
-            .token("refresh-token")
-            .user(user)
-            .expiresAt(LocalDateTime.now().plusDays(14))
+            .refreshToken("hashed-refresh-token")
             .build();
 
-        doNothing().when(jwtTokenProvider).validateRefreshToken("refresh-token");
-        when(refreshTokenRepository.findByToken("refresh-token")).thenReturn(Optional.of(token));
+        when(jwtTokenProvider.extractValidRefreshUserId("refresh-token")).thenReturn(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("refresh-token", "hashed-refresh-token")).thenReturn(true);
 
         userService.logout("refresh-token");
 
         assertThat(user.getFcmToken()).isNull();
-        verify(refreshTokenRepository).delete(token);
+        assertThat(user.getRefreshToken()).isNull();
     }
 
     @Test
     @DisplayName("로그아웃에서 만료된 refresh 토큰은 예외")
     void 로그아웃_만료토큰() {
         doThrow(new JwtTokenProvider.TokenExpiredException("expired"))
-            .when(jwtTokenProvider).validateRefreshToken("expired-token");
+            .when(jwtTokenProvider).extractValidRefreshUserId("expired-token");
 
         assertThatThrownBy(() -> userService.logout("expired-token"))
-            .isInstanceOf(BusinessException.class)
-            .hasMessageContaining(UserErrorCode.AUTH_TOKEN_EXPIRED.message());
+            .isInstanceOf(JwtTokenProvider.TokenExpiredException.class);
     }
 
     @Test
     @DisplayName("로그아웃에서 유효하지 않은 refresh 토큰은 예외")
     void 로그아웃_유효하지않은토큰() {
-        doThrow(new IllegalArgumentException("invalid"))
-            .when(jwtTokenProvider).validateRefreshToken("invalid-token");
+        doThrow(new JwtTokenProvider.InvalidTokenException("invalid"))
+            .when(jwtTokenProvider).extractValidRefreshUserId("invalid-token");
 
         assertThatThrownBy(() -> userService.logout("invalid-token"))
-            .isInstanceOf(BusinessException.class)
-            .hasMessageContaining(UserErrorCode.AUTH_INVALID_TOKEN.message());
+            .isInstanceOf(JwtTokenProvider.InvalidTokenException.class);
+    }
+
+    @Test
+    @DisplayName("refresh 성공 시 입력 토큰은 해시 검증되고 새 토큰으로 회전된다")
+    void refresh_성공() {
+        User user = User.builder()
+            .id(1L)
+            .email("test@example.com")
+            .password("encoded")
+            .socialProvider(SocialProvider.LOCAL)
+            .fcmToken("fcm-token")
+            .refreshToken("hashed-old-refresh")
+            .build();
+
+        JwtTokenProvider.JwtTokenPair tokenPair =
+            new JwtTokenProvider.JwtTokenPair("new-access", "new-refresh", LocalDateTime.now().plusDays(14));
+
+        when(jwtTokenProvider.extractValidRefreshUserId("old-refresh")).thenReturn(1L);
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("old-refresh", "hashed-old-refresh")).thenReturn(true);
+        when(jwtTokenProvider.issueTokens(1L, "test@example.com")).thenReturn(tokenPair);
+        when(passwordEncoder.encode("new-refresh")).thenReturn("hashed-new-refresh");
+
+        AuthResponse response = userService.refresh("old-refresh");
+
+        assertThat(response.getAccessToken()).isEqualTo("new-access");
+        assertThat(response.getRefreshToken()).isEqualTo("new-refresh");
+        assertThat(user.getRefreshToken()).isEqualTo("hashed-new-refresh");
     }
 }

@@ -21,11 +21,15 @@ public class User {
     @Column(length = 255)
     private String password;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "social_provider", nullable = false, length = 20)
-    private String socialProvider; // "LOCAL", "GOOGLE", "KAKAO"
+    private SocialProvider socialProvider;
 
     @Column(name = "fcm_token", columnDefinition = "TEXT")
     private String fcmToken;
+
+    @Column(name = "refresh_token", length = 255)
+    private String refreshToken;
 
     @Column(name = "global_push_enabled", nullable = false)
     @Builder.Default
@@ -39,14 +43,22 @@ public class User {
         this.createdAt = java.time.LocalDateTime.now();
     }
 
-    // 비즈니스 로직: FCM 토큰 업데이트
+    public void login(String fcmToken, String hashedRefreshToken) {
+        this.fcmToken = fcmToken;
+        this.refreshToken = hashedRefreshToken;
+    }
+
     public void updateFcmToken(String fcmToken) {
         this.fcmToken = fcmToken;
     }
 
-    // 비즈니스 로직: FCM 토큰 제거 (로그아웃)
-    public void clearFcmToken() {
+    public void updateRefreshToken(String hashedToken) {
+        this.refreshToken = hashedToken;
+    }
+
+    public void logout() {
         this.fcmToken = null;
+        this.refreshToken = null;
     }
 
     // 비즈니스 로직: 전체 알림 설정 변경
