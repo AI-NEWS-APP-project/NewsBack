@@ -1,4 +1,70 @@
 package com.news.newsback.domain.keyword.application;
-//키워드 구독/해제 관리
+
+import com.news.newsback.domain.keyword.domain.KeywordRepository;
+import com.news.newsback.domain.keyword.domain.UserKeywordRepository;
+import com.news.newsback.domain.keyword.domain.Keyword;
+import com.news.newsback.domain.keyword.domain.UserKeyword;
+import com.news.newsback.domain.keyword.exception.KeywordErrorCode;
+import com.news.newsback.domain.keyword.util.KeywordNormalizer;
+import com.news.newsback.domain.user.domain.User;
+import com.news.newsback.domain.user.domain.UserRepository;
+import com.news.newsback.global.error.BusinessException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+
+// 키워드 서비스: 유저 키워드 등록, 삭제, 구독 해제 로직 포함
+@Service
+@RequiredArgsConstructor
+@Transactional
 public class KeywordService {
+
+    private final KeywordRepository keywordRepository;
+    private final UserRepository userRepository;
+    private final UserKeywordRepository userKeywordRepository;
+
+    // 키워드 등록 로직: 중복, 개수 제한 검증 포함
+    public void registerKeyword(Long userId, String rawKeyword) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new BusinessException(KeywordErrorCode.USER_NOT_FOUND));
+
+        if (userKeywordRepository.countByUserId(userId) >= 5) {
+            throw new BusinessException(KeywordErrorCode.MAX_KEYWORDS_EXCEEDED);
+        }
+
+        String normalizedKeyword = KeywordNormalizer.normalize(rawKeyword);
+        Keyword keyword = keywordRepository.findByName(normalizedKeyword)
+                .orElseGet(() -> keywordRepository.save(new Keyword(normalizedKeyword)));
+
+        if (userKeywordRepository.existsByUserIdAndKeywordId(userId, keyword.getId())) {
+            throw new BusinessException(KeywordErrorCode.DUPLICATE_KEYWORD);
+        }
+
+        userKeywordRepository.save(new UserKeyword(user.getId(), keyword));
+    }
+
+    @SuppressWarnings("unused")
+    public void deleteKeyword(Long userId, String rawKeyword) {
+        String normalizedKeyword = KeywordNormalizer.normalize(rawKeyword);
+        Keyword keyword = keywordRepository.findByName(normalizedKeyword)
+                .orElseThrow(() -> new BusinessException(KeywordErrorCode.KEYWORD_NOT_FOUND));
+
+        userKeywordRepository.deleteByUserIdAndKeywordId(userId, keyword.getId());
+    }
+
+    @Transactional
+    public void unsubscribeKeyword(Long userId, String rawKeyword) {
+        String normalizedKeyword = KeywordNormalizer.normalize(rawKeyword);
+        Keyword keyword = keywordRepository.findByName(normalizedKeyword)
+                .orElseThrow(() -> new BusinessException(KeywordErrorCode.KEYWORD_NOT_FOUND));
+
+        userKeywordRepository.deleteByUserIdAndKeywordId(userId, keyword.getId());
+        keywordRepository.delete(keyword); // Ensure the keyword is deleted
+    }
+
+    public List<String> retrievePopularKeywords() {
+        return keywordRepository.findPopularKeywords();
+    }
 }

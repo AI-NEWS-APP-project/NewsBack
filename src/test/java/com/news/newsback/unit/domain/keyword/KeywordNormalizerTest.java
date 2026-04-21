@@ -12,6 +12,7 @@ class KeywordNormalizerTest {
     @Test
     @DisplayName("키워드_정규화_테스트")
     void 키워드_정규화_테스트() {
+
         // 입력값
         String input1 = " AI ";
         String input2 = "Samsung";
