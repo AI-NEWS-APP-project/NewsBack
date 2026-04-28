@@ -1,7 +1,7 @@
 -- NewsBack Database Schema
 -- Auto-executed on first container startup
 
--- 1. Users Table
+-- 1. Users
 CREATE TABLE IF NOT EXISTS `users` (
     `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
     `email` VARCHAR(255) NOT NULL UNIQUE,
@@ -13,100 +13,115 @@ CREATE TABLE IF NOT EXISTS `users` (
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Keywords Dictionary Table
+-- 2. Keywords
 CREATE TABLE IF NOT EXISTS `keywords` (
     `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
-    `name` VARCHAR(100) NOT NULL UNIQUE
+    `name` VARCHAR(255) NOT NULL UNIQUE,
+    `usage_count` INT NOT NULL DEFAULT 0,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- 2-1. User-Keywords Mapping Table
+-- 3. User-Keywords
 CREATE TABLE IF NOT EXISTS `user_keywords` (
     `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
     `user_id` BIGINT NOT NULL,
     `keyword_id` BIGINT NOT NULL,
-    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT `fk_user_keywords_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
     CONSTRAINT `fk_user_keywords_keyword` FOREIGN KEY (`keyword_id`) REFERENCES `keywords` (`id`) ON DELETE CASCADE
 );
 
--- 4. Cluster News (AI Server Grouping Result)
-CREATE TABLE IF NOT EXISTS `cluster_news` (
-    `id` CHAR(36) PRIMARY KEY COMMENT 'UUID',
-    `keyword_id` BIGINT NULL COMMENT 'AI가 추출한 키워드와 매칭된 결과',
-    `title` VARCHAR(500) NULL COMMENT '대표 제목',
-    `representative_summary` TEXT NULL COMMENT '바구니 요약 내용',
-    `news_count` INT DEFAULT 1 COMMENT '현재 포함된 기사 수',
-    `last_summarized_count` INT DEFAULT 1 COMMENT '마지막 요약 시점의 기사 수 (5개 추가 체크용)',
-    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '요약 갱신 시각 (20분 주기 감지용)',
-    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT `fk_cluster_news_keyword` FOREIGN KEY (`keyword_id`) REFERENCES `keywords` (`id`) ON DELETE SET NULL
-);
-
--- 3. News Original Table (references cluster_news)
+-- 4. News
 CREATE TABLE IF NOT EXISTS `news` (
-    `id` VARCHAR(64) PRIMARY KEY COMMENT 'uuid / title hash',
-    `cluster_id` CHAR(36) NULL COMMENT '클러스터링 전에는 null',
+    `id` VARCHAR(64) PRIMARY KEY COMMENT 'UUID',
+    `cluster_id` CHAR(36) NULL COMMENT 'AI server cluster id',
     `title` VARCHAR(500) NOT NULL,
     `content` TEXT NOT NULL,
     `source` VARCHAR(50) NOT NULL,
-    `author` VARCHAR(255) DEFAULT 'Unknown',
+    `author` VARCHAR(255) NULL,
     `language` VARCHAR(10) NOT NULL,
     `region` VARCHAR(50) NOT NULL,
     `url` VARCHAR(768) NOT NULL UNIQUE,
-    `thumbnail_url` TEXT,
-    `processing_status` VARCHAR(20) DEFAULT 'READY' COMMENT 'READY, PROCESSING, COMPLETED, ERROR',
+    `thumbnail_url` TEXT NULL,
     `published_at` DATETIME NOT NULL,
-    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT `fk_news_cluster` FOREIGN KEY (`cluster_id`) REFERENCES `cluster_news` (`id`) ON DELETE SET NULL
+    `processing_status` VARCHAR(20) NOT NULL DEFAULT 'READY',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- 5. Keyword Summary Table
+-- 5. Cluster News
+CREATE TABLE IF NOT EXISTS `cluster_news` (
+    `id` CHAR(36) PRIMARY KEY COMMENT 'UUID',
+    `keyword_id` BIGINT NULL COMMENT '팀 합의 전 임시 필드',
+    `title` VARCHAR(500) NULL COMMENT '대표 제목',
+    `representative_summary` TEXT NULL COMMENT '클러스터 대표 요약',
+    `news_count` INT DEFAULT 1 COMMENT '현재 포함된 기사 수',
+    `last_summarized_count` INT DEFAULT 1 COMMENT '마지막 요약 시점의 기사 수',
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT `fk_cluster_news_keyword` FOREIGN KEY (`keyword_id`) REFERENCES `keywords` (`id`) ON DELETE SET NULL
+);
+
+-- 6. Keyword News
 CREATE TABLE IF NOT EXISTS `keyword_news` (
     `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
     `keyword_id` BIGINT NOT NULL,
     `summary_text` TEXT NOT NULL,
     `summary_hash` VARCHAR(64) NULL COMMENT '이전 요약본과의 유사도 비교용',
-    `keyword_count` INT DEFAULT 1,
-    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    `cluster_news_count` INT DEFAULT 1,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT `fk_keyword_news_keyword` FOREIGN KEY (`keyword_id`) REFERENCES `keywords` (`id`) ON DELETE CASCADE
 );
 
--- 5-1. Final Summary-Cluster Mapping Table
+-- 7. Keyword News Links
+CREATE TABLE IF NOT EXISTS `keyword_news_links` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `keyword_news_id` BIGINT NOT NULL,
+    `url` VARCHAR(768) NOT NULL,
+    `title` VARCHAR(500) NOT NULL,
+    CONSTRAINT `fk_keyword_news_links_keyword_news` FOREIGN KEY (`keyword_news_id`) REFERENCES `keyword_news` (`id`) ON DELETE CASCADE
+);
+
+-- 8. Keyword News-Cluster Mapping
 CREATE TABLE IF NOT EXISTS `keyword_news_clusters` (
     `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
     `keyword_news_id` BIGINT NOT NULL,
-    `cluster_id` CHAR(36) NOT NULL COMMENT '최종 요약에 사용된 중요5+최신5 클러스터 ID들을 저장',
+    `cluster_id` CHAR(36) NOT NULL,
     CONSTRAINT `fk_knc_keyword_news` FOREIGN KEY (`keyword_news_id`) REFERENCES `keyword_news` (`id`) ON DELETE CASCADE,
     CONSTRAINT `fk_knc_cluster` FOREIGN KEY (`cluster_id`) REFERENCES `cluster_news` (`id`) ON DELETE CASCADE
 );
 
--- 6. Notification History
-CREATE TABLE IF NOT EXISTS `notification_history` (
+-- 9. Today News Summaries
+CREATE TABLE IF NOT EXISTS `today_news_summaries` (
     `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
-    `user_id` BIGINT NOT NULL,
-    `keyword_news_id` BIGINT NOT NULL,
-    `sent_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT `fk_noti_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-    CONSTRAINT `fk_noti_keyword_news` FOREIGN KEY (`keyword_news_id`) REFERENCES `keyword_news` (`id`) ON DELETE CASCADE
+    `title` VARCHAR(500) NOT NULL,
+    `summary` TEXT NOT NULL,
+    `news_count` INT DEFAULT 0,
+    `generated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- Indexes for performance
-CREATE INDEX idx_user_keywords_user_id ON user_keywords(user_id);
-CREATE INDEX idx_user_keywords_keyword_id ON user_keywords(keyword_id);
-CREATE INDEX idx_cluster_news_keyword_id ON cluster_news(keyword_id);
-CREATE INDEX idx_news_cluster_id ON news(cluster_id);
-CREATE INDEX idx_news_published_at ON news(published_at);
-CREATE INDEX idx_keyword_news_keyword_id ON keyword_news(keyword_id);
-CREATE INDEX idx_notification_history_user_id ON notification_history(user_id);
+-- 10. Today News Summary-News Mapping
+CREATE TABLE IF NOT EXISTS `today_news_summary_news` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `today_news_summary_id` BIGINT NOT NULL,
+    `news_id` VARCHAR(64) NOT NULL,
+    CONSTRAINT `fk_today_summary_news_summary` FOREIGN KEY (`today_news_summary_id`) REFERENCES `today_news_summaries` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_today_summary_news_news` FOREIGN KEY (`news_id`) REFERENCES `news` (`id`) ON DELETE CASCADE
+);
 
--- Backfill / migration-safe alters for existing environments
+-- Backfill / migration-safe alters for existing environments.
+-- Note: docker-entrypoint-initdb.d scripts run only on first DB volume initialization.
 ALTER TABLE `users`
     ADD COLUMN IF NOT EXISTS `refresh_token` VARCHAR(255) NULL COMMENT 'BCrypt 해시 refresh token (단일 세션, 재로그인 시 갱신)';
 ALTER TABLE `users`
     MODIFY COLUMN `refresh_token` VARCHAR(255) NULL COMMENT 'BCrypt 해시 refresh token (단일 세션, 재로그인 시 갱신)';
 ALTER TABLE `users`
-    MODIFY COLUMN `global_push_enabled` BOOLEAN NOT NULL DEFAULT TRUE;
+    ADD COLUMN IF NOT EXISTS `global_push_enabled` BOOLEAN NOT NULL DEFAULT TRUE;
 ALTER TABLE `users`
-    MODIFY COLUMN `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP;
+    MODIFY COLUMN `global_push_enabled` BOOLEAN NOT NULL DEFAULT TRUE;
 ALTER TABLE `keyword_news`
-    ADD COLUMN IF NOT EXISTS `keyword_count` INT DEFAULT 1;
+    ADD COLUMN IF NOT EXISTS `cluster_news_count` INT DEFAULT 1;
+ALTER TABLE `keyword_news`
+    ADD COLUMN IF NOT EXISTS `summary_hash` VARCHAR(64) NULL COMMENT '이전 요약본과의 유사도 비교용';
