@@ -46,7 +46,6 @@ public class KeywordService {
         userKeywordRepository.save(new UserKeyword(user.getId(), keyword));
     }
 
-    @SuppressWarnings("unused")
     public void deleteKeyword(Long userId, String rawKeyword) {
         String normalizedKeyword = KeywordNormalizer.normalize(rawKeyword);
         Keyword keyword = keywordRepository.findByName(normalizedKeyword)
@@ -55,14 +54,13 @@ public class KeywordService {
         userKeywordRepository.deleteByUserIdAndKeywordId(userId, keyword.getId());
     }
 
-    @Transactional
     public void unsubscribeKeyword(Long userId, String rawKeyword) {
         String normalizedKeyword = KeywordNormalizer.normalize(rawKeyword);
         Keyword keyword = keywordRepository.findByName(normalizedKeyword)
                 .orElseThrow(() -> new BusinessException(KeywordErrorCode.KEYWORD_NOT_FOUND));
 
         userKeywordRepository.deleteByUserIdAndKeywordId(userId, keyword.getId());
-        keywordRepository.delete(keyword);
+        keywordRepository.delete(keyword); // Ensure the keyword is deleted
     }
 
     public List<String> retrievePopularKeywords() {
