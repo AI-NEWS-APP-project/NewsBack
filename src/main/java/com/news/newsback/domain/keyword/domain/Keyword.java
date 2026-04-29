@@ -34,7 +34,4 @@ public class Keyword extends BaseTimeEntity {
         this.usageCount++;
     }
 
-    public Long getId() {
-        return id;
-    }
 }
