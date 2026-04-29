@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 // 키워드 서비스: 유저 키워드 등록, 삭제, 구독 해제 로직 포함
 @Service
@@ -61,10 +62,17 @@ public class KeywordService {
                 .orElseThrow(() -> new BusinessException(KeywordErrorCode.KEYWORD_NOT_FOUND));
 
         userKeywordRepository.deleteByUserIdAndKeywordId(userId, keyword.getId());
-        keywordRepository.delete(keyword); // Ensure the keyword is deleted
+        keywordRepository.delete(keyword);
     }
 
     public List<String> retrievePopularKeywords() {
         return keywordRepository.findPopularKeywords();
+    }
+
+    public List<String> retrieveKeywordsByUserId(Long userId) {
+        return userKeywordRepository.findByUserId(userId)
+                .stream()
+                .map(userKeyword -> userKeyword.getKeyword().getName())
+                .collect(Collectors.toList());
     }
 }
