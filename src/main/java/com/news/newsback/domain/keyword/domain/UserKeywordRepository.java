@@ -4,6 +4,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 public interface UserKeywordRepository extends JpaRepository<UserKeyword, Long> {
     int countByUserId(Long userId);
 
@@ -12,4 +14,6 @@ public interface UserKeywordRepository extends JpaRepository<UserKeyword, Long> 
     @Modifying
     @Transactional
     void deleteByUserIdAndKeywordId(Long userId, Long keywordId);
+
+    List<UserKeyword> findByUserId(Long userId);
 }
