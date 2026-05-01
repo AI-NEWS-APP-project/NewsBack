@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -31,7 +32,8 @@ public class NewsGatheringService {
     public List<News> gatherNewsFromRss(NewsSource source) {
         String xml;
         try {
-            xml = restTemplate.getForObject(source.url(), String.class);
+            byte[] response = restTemplate.getForObject(source.url(), byte[].class);
+            xml = response == null ? null : new String(response, StandardCharsets.UTF_8);
         } catch (Exception e) {
             throw new NewsException(NewsErrorCode.RSS_FETCH_FAILED, e);
         }

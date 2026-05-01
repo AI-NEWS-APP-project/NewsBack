@@ -78,17 +78,15 @@ public class NewsSummaryService {
         }
     }
 
-    //TODO: 일일 요약 ai server api spec확정 시 작업 마무리 할 것
     public void requestTodaySummary() {
-        // 일일 요약 요청 (파라미터는 정책에 따라 설정)
         aiClient.requestTodayNewsSummary(10, 10, 24);
         log.info("Requested today news summary");
     }
 
     @Transactional
     public void updateClusterNewsSummary(AiResponse.ClusterNewsSummaryResponse response) {
-        if (!"success".equals(response.getStatus())) {
-            log.error("AI cluster news summary failed for cluster: {}", response.getClusterId());
+        if (!isSuccess(response.getStatus())) {
+            log.info("AI cluster news summary skipped. cluster={}, status={}", response.getClusterId(), response.getStatus());
             return;
         }
 
@@ -100,8 +98,8 @@ public class NewsSummaryService {
 
     @Transactional
     public void saveKeywordNews(AiResponse.KeywordNewsResponse response) {
-        if (!"success".equals(response.getStatus())) {
-            log.error("AI keyword news summary failed for keyword: {}", response.getKeywordId());
+        if (!isSuccess(response.getStatus())) {
+            log.info("AI keyword news summary skipped. keyword={}, status={}", response.getKeywordId(), response.getStatus());
             return;
         }
 
@@ -129,8 +127,8 @@ public class NewsSummaryService {
 
     @Transactional
     public void saveTodayNewsSummary(AiResponse.TodayNewsResponse response) {
-        if (!"success".equals(response.getStatus())) {
-            log.error("AI today news summary failed");
+        if (!isSuccess(response.getStatus())) {
+            log.info("AI today news summary skipped. status={}", response.getStatus());
             return;
         }
 
@@ -161,5 +159,9 @@ public class NewsSummaryService {
         private boolean contains(String normalizedKeyword) {
             return searchableText.contains(normalizedKeyword);
         }
+    }
+
+    private boolean isSuccess(String status) {
+        return "success".equalsIgnoreCase(status);
     }
 }

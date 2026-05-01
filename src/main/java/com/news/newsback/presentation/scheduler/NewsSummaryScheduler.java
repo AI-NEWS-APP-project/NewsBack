@@ -22,8 +22,13 @@ public class NewsSummaryScheduler {
 
     private static final List<NewsSource> TARGET_SOURCES = List.of(
             new NewsSource("연합뉴스TV", "국내 뉴스", "https://www.yonhapnewstv.co.kr/browse/feed/", "ko", "KR"),
-            new NewsSource("프레시안", "국내 뉴스", "http://www.pressian.com/api/v3/site/rss/news", "ko", "KR"),
-            new NewsSource("BBC News", "세계 뉴스", "http://feeds.bbci.co.uk/news/world/rss.xml", "en", "GB")
+            new NewsSource("프레시안", "국내 뉴스", "https://www.pressian.com/api/v3/site/rss/news", "ko", "KR"),
+            new NewsSource("동아일보", "국내 뉴스", "https://rss.donga.com/total.xml", "ko", "KR"),
+            new NewsSource("한겨레", "국내 뉴스", "https://www.hani.co.kr/rss", "ko", "KR"),
+            new NewsSource("한국경제", "국내 뉴스", "https://www.hankyung.com/feed/all-news", "ko", "KR"),
+            new NewsSource("SBS 뉴스", "국내 뉴스", "https://news.sbs.co.kr/news/SectionRssFeed.do?sectionId=01&plink=RSSREADER", "ko", "KR"),
+            new NewsSource("매일경제", "국내 뉴스", "https://www.mk.co.kr/rss/30000001", "ko", "KR"),
+            new NewsSource("BBC News", "세계 뉴스", "https://feeds.bbci.co.uk/news/world/rss.xml", "en", "GB")
     );
 
     // 30분 간격으로 실행
@@ -62,15 +67,14 @@ public class NewsSummaryScheduler {
         }
     }
 
-    // TODO: 일일 뉴스 요약 개발 보류. 기능 재개 시 스케줄 정책과 API 노출 여부를 함께 확정한다.
     // 일일 뉴스 요약 (매일 오전 8시, 오후 8시)
-    // @Scheduled(cron = "0 0 8,20 * * *")
-    // public void runTodayNewsSummary() {
-    //     log.info("Starting today news summary process...");
-    //     try {
-    //         newsSummaryService.requestTodaySummary();
-    //     } catch (Exception e) {
-    //         log.error("Failed to request today news summary", e);
-    //     }
-    // }
+    @Scheduled(cron = "0 0 8,20 * * *")
+    public void runTodayNewsSummary() {
+        log.info("Starting today news summary process...");
+        try {
+            newsSummaryService.requestTodaySummary();
+        } catch (Exception e) {
+            log.error("Failed to request today news summary", e);
+        }
+    }
 }
