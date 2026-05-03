@@ -104,6 +104,57 @@ class NewsSummaryServiceTest {
     }
 
     @Test
+    @DisplayName("키워드 뉴스 callback이 success가 아니면 저장하지 않는다")
+    void 키워드_뉴스_callback_비성공_저장하지_않음() {
+        AiResponse.KeywordNewsResponse response = new AiResponse.KeywordNewsResponse(
+                "request-id", "fail", 1L, "삼성전자", null, null, List.of(), "2026-04-28T10:00:00");
+
+        newsSummaryService.saveKeywordNews(response);
+
+        verifyNoInteractions(keywordRepository, newsRepository, keywordNewsRepository);
+    }
+
+    @Test
+    @DisplayName("일일 뉴스 요약 요청은 문서 스펙의 기본 파라미터로 전송한다")
+    void 일일_뉴스_요약_요청() {
+        newsSummaryService.requestTodaySummary();
+
+        verify(aiClient).requestTodayNewsSummary(10, 10, 24);
+    }
+
+    @Test
+    @DisplayName("일일 뉴스 요약 callback 성공 시 요약과 관련 뉴스를 저장한다")
+    void 일일_뉴스_요약_callback_성공_저장() {
+        com.news.newsback.domain.news.model.News news = com.news.newsback.domain.news.model.News.create(
+                "제목", "본문", "https://news.example.com", "언론사", null, "ko", "KR", null, java.time.LocalDateTime.now());
+        AiResponse.TodayNewsResponse response = new AiResponse.TodayNewsResponse(
+                "request-id", "success", "최근 주요 뉴스 종합", "일일 요약", List.of(news.getId()), 1, "2026-04-28T20:00:00");
+
+        when(newsRepository.findById(news.getId())).thenReturn(Optional.of(news));
+
+        newsSummaryService.saveTodayNewsSummary(response);
+
+        ArgumentCaptor<com.news.newsback.domain.news.model.TodayNewsSummary> captor =
+                ArgumentCaptor.forClass(com.news.newsback.domain.news.model.TodayNewsSummary.class);
+        verify(todayNewsSummaryRepository).save(captor.capture());
+        assertThat(captor.getValue().getTitle()).isEqualTo("최근 주요 뉴스 종합");
+        assertThat(captor.getValue().getSummary()).isEqualTo("일일 요약");
+        assertThat(captor.getValue().getNewsCount()).isEqualTo(1);
+        assertThat(captor.getValue().getSummaryNews()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("일일 뉴스 요약 callback이 success가 아니면 저장하지 않는다")
+    void 일일_뉴스_요약_callback_비성공_저장하지_않음() {
+        AiResponse.TodayNewsResponse response = new AiResponse.TodayNewsResponse(
+                "request-id", "fail", null, null, List.of(), 0, "2026-04-28T20:00:00");
+
+        newsSummaryService.saveTodayNewsSummary(response);
+
+        verify(todayNewsSummaryRepository, never()).save(org.mockito.Mockito.any());
+    }
+
+    @Test
     @DisplayName("키워드가 제목 또는 대표 요약에 포함된 클러스터 뉴스만 키워드 요약 요청으로 전송한다")
     void 키워드_매칭_클러스터만_키워드_요약_요청() {
         Keyword keyword = keyword(1L, "삼성전자");

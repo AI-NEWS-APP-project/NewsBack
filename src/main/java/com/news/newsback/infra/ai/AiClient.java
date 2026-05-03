@@ -23,7 +23,7 @@ public interface AiClient {
     void requestKeywordNewsSummary(Keyword keyword, List<ClusterNews> clusterNewsList);
 
     /**
-     * 일일 주요 뉴스 요약을 요청(보류)
+     * 일일 주요 뉴스 요약을 요청
      */
     void requestTodayNewsSummary(int topKImportant, int topKLatest, int timeWindowHours);
 }

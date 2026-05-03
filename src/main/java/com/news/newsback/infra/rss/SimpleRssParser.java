@@ -5,6 +5,7 @@ import com.news.newsback.domain.news.exception.NewsErrorCode;
 import com.news.newsback.domain.news.exception.NewsException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.web.util.HtmlUtils;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -20,6 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Component
@@ -27,6 +29,10 @@ public class SimpleRssParser implements RssParser {
 
     private static final DateTimeFormatter RSS_DATE_FORMATTER =
             DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss Z", Locale.ENGLISH);
+    private static final Pattern BARE_HTML_ENTITY_PATTERN = Pattern.compile(
+            "(?<!&)(hellip|ldquo|rdquo|lsquo|rsquo|quot|apos|middot|nbsp|amp|lt|gt);"
+    );
+    private static final Pattern HTML_TAG_PATTERN = Pattern.compile("<[^>]+>");
 
     @Override
     public List<News> parse(String xml, String source, String language, String region) {
@@ -40,9 +46,15 @@ public class SimpleRssParser implements RssParser {
             for (int i = 0; i < items.getLength(); i++) {
                 Element item = (Element) items.item(i);
                 
-                Optional<String> titleOpt = Optional.ofNullable(getTagValue(item, "title"));
-                Optional<String> contentOpt = Optional.ofNullable(getTagValue(item, "description"));
-                Optional<String> urlOpt = Optional.ofNullable(getTagValue(item, "link"));
+                Optional<String> titleOpt = Optional.ofNullable(getTagValue(item, "title"))
+                        .map(this::normalizeHtmlText)
+                        .filter(value -> !value.isBlank());
+                Optional<String> contentOpt = getFirstTagValue(item, "description", "content:encoded", "dc:subject", "title")
+                        .map(this::normalizeHtmlText)
+                        .filter(value -> !value.isBlank());
+                Optional<String> urlOpt = Optional.ofNullable(getTagValue(item, "link"))
+                        .map(this::normalizeHtmlText)
+                        .filter(value -> !value.isBlank());
 
                 if (titleOpt.isEmpty() || contentOpt.isEmpty() || urlOpt.isEmpty()) {
                     log.warn("RSS item 필수 필드 누락. 스킵: title={}, url={}", titleOpt.orElse(null), urlOpt.orElse(null));
@@ -52,7 +64,9 @@ public class SimpleRssParser implements RssParser {
                 String title = titleOpt.get();
                 String content = contentOpt.get();
                 String url = urlOpt.get();
-                String author = getTagValue(item, "author"); // Or dc:creator, etc.
+                String author = Optional.ofNullable(getTagValue(item, "author"))
+                        .map(this::normalizeHtmlText)
+                        .orElse(null); // Or dc:creator, etc.
 
                 String pubDateStr = getTagValue(item, "pubDate");
                 LocalDateTime publishedAt = parsePublishedDate(pubDateStr);
@@ -86,11 +100,27 @@ public class SimpleRssParser implements RssParser {
         return null;
     }
 
+    private Optional<String> getFirstTagValue(Element element, String... tagNames) {
+        for (String tagName : tagNames) {
+            String value = getTagValue(element, tagName);
+            if (value != null && !normalizeHtmlText(value).isBlank()) {
+                return Optional.of(value);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private String normalizeHtmlText(String value) {
+        String repaired = BARE_HTML_ENTITY_PATTERN.matcher(value).replaceAll("&$1;");
+        String unescaped = HtmlUtils.htmlUnescape(repaired).replace('\u00A0', ' ');
+        String withoutTags = HTML_TAG_PATTERN.matcher(unescaped).replaceAll(" ");
+        return withoutTags.replaceAll("\\s+", " ").strip();
+    }
+
     private DocumentBuilderFactory createSecureDocumentBuilderFactory() throws ParserConfigurationException {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         factory.setXIncludeAware(false);
         factory.setExpandEntityReferences(false);
-        setFeatureIfSupported(factory, "http://apache.org/xml/features/disallow-doctype-decl", true);
         setFeatureIfSupported(factory, "http://xml.org/sax/features/external-general-entities", false);
         setFeatureIfSupported(factory, "http://xml.org/sax/features/external-parameter-entities", false);
         setFeatureIfSupported(factory, "http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
