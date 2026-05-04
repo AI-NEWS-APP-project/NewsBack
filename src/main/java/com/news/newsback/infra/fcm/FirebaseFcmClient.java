@@ -1,23 +1,21 @@
 package com.news.newsback.infra.fcm;
 
 import com.google.firebase.messaging.*;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
-@Component
-@RequiredArgsConstructor
-@ConditionalOnBean(FirebaseMessaging.class)
 public class FirebaseFcmClient implements FcmClient {
 
     private static final int MAX_MULTICAST_SIZE = 500;
 
     private final FirebaseMessaging firebaseMessaging;
+
+    public FirebaseFcmClient(FirebaseMessaging firebaseMessaging) {
+        this.firebaseMessaging = firebaseMessaging;
+    }
 
     @Override
     public List<FcmSendResult> sendToTokens(List<String> tokens, PushMessage message) {
