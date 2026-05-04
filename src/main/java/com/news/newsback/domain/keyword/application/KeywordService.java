@@ -46,14 +46,6 @@ public class KeywordService {
         userKeywordRepository.save(new UserKeyword(user.getId(), keyword));
     }
 
-    public void deleteKeyword(Long userId, String rawKeyword) {
-        String normalizedKeyword = KeywordNormalizer.normalize(rawKeyword);
-        Keyword keyword = keywordRepository.findByName(normalizedKeyword)
-                .orElseThrow(() -> new BusinessException(KeywordErrorCode.KEYWORD_NOT_FOUND));
-
-        userKeywordRepository.deleteByUserIdAndKeywordId(userId, keyword.getId());
-    }
-
     public void unsubscribeKeyword(Long userId, String rawKeyword) {
         String normalizedKeyword = KeywordNormalizer.normalize(rawKeyword);
         Keyword keyword = keywordRepository.findByName(normalizedKeyword)
