@@ -1,10 +1,12 @@
 package com.news.newsback.application.news;
 
+import com.news.newsback.application.alarm.PushNotificationService;
 import com.news.newsback.domain.keyword.domain.Keyword;
 import com.news.newsback.domain.keyword.domain.KeywordRepository;
 import com.news.newsback.domain.news.exception.NewsErrorCode;
 import com.news.newsback.domain.news.exception.NewsException;
 import com.news.newsback.domain.news.model.ClusterNews;
+import com.news.newsback.domain.news.model.KeywordNews;
 import com.news.newsback.domain.news.repository.ClusterNewsRepository;
 import com.news.newsback.domain.news.repository.KeywordNewsRepository;
 import com.news.newsback.domain.news.repository.NewsRepository;
@@ -53,6 +55,9 @@ class NewsSummaryServiceTest {
 
     @Mock
     private AiClient aiClient;
+
+    @Mock
+    private PushNotificationService pushNotificationService;
 
     @Test
     @DisplayName("요약이 필요하다고 조회된 클러스터 뉴스만 클러스터 요약 요청으로 전송한다")
@@ -112,6 +117,27 @@ class NewsSummaryServiceTest {
         newsSummaryService.saveKeywordNews(response);
 
         verifyNoInteractions(keywordRepository, newsRepository, keywordNewsRepository);
+    }
+
+    @Test
+    @DisplayName("키워드 뉴스 callback 성공 시 저장 후 푸시 알림을 요청한다")
+    void 키워드_뉴스_callback_성공_푸시_알림_요청() {
+        Keyword keyword = keyword(1L, "AI");
+        AiResponse.KeywordNewsResponse response = new AiResponse.KeywordNewsResponse(
+                "request-id", "success", 1L, "AI", "AI 키워드 뉴스", "AI 요약", List.of("cluster-1"), "2026-04-28T10:00:00");
+        com.news.newsback.domain.news.model.News news = com.news.newsback.domain.news.model.News.create(
+                "기사 제목", "기사 본문", "https://news.example.com/1", "언론사", null, "ko", "KR", null, java.time.LocalDateTime.now());
+
+        when(keywordRepository.findById(1L)).thenReturn(Optional.of(keyword));
+        when(newsRepository.findAllByClusterIdOrderByPublishedAtDesc("cluster-1")).thenReturn(List.of(news));
+        when(keywordNewsRepository.save(org.mockito.Mockito.any(KeywordNews.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        newsSummaryService.saveKeywordNews(response);
+
+        ArgumentCaptor<KeywordNews> captor = ArgumentCaptor.forClass(KeywordNews.class);
+        verify(keywordNewsRepository).save(captor.capture());
+        verify(pushNotificationService).sendKeywordNews(captor.getValue());
     }
 
     @Test

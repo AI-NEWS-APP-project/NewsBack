@@ -20,4 +20,6 @@ public interface UserKeywordRepository extends JpaRepository<UserKeyword, Long> 
 
     @Query("SELECT uk.keyword.name FROM UserKeyword uk GROUP BY uk.keyword.id ORDER BY COUNT(uk.keyword.id) DESC")
     List<String> findPopularKeywords();
+
+    List<UserKeyword> findByKeywordId(Long keywordId);
 }

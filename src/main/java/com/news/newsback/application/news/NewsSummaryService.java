@@ -1,5 +1,6 @@
 package com.news.newsback.application.news;
 
+import com.news.newsback.application.alarm.PushNotificationService;
 import com.news.newsback.domain.keyword.domain.Keyword;
 import com.news.newsback.domain.keyword.domain.KeywordRepository;
 import com.news.newsback.domain.keyword.util.KeywordNormalizer;
@@ -32,6 +33,7 @@ public class NewsSummaryService {
     private final TodayNewsSummaryRepository todayNewsSummaryRepository;
 
     private final AiClient aiClient;
+    private final PushNotificationService pushNotificationService;
 
     public void requestClusterSummaries() {
         List<ClusterNews> targets = clusterNewsRepository.findAllRequiringSummary(CLUSTER_SUMMARY_NEWS_INCREMENT_THRESHOLD);
@@ -121,7 +123,8 @@ public class NewsSummaryService {
             }
         }
 
-        keywordNewsRepository.save(keywordNews);
+        KeywordNews savedKeywordNews = keywordNewsRepository.save(keywordNews);
+        pushNotificationService.sendKeywordNews(savedKeywordNews);
         log.info("Saved keyword news summary for: {}", keyword.getName());
     }
 
