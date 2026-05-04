@@ -1,5 +1,6 @@
 package com.news.newsback.domain.user.application;
 
+import com.news.newsback.application.alarm.FcmTokenService;
 import com.news.newsback.domain.user.api.AuthResponse;
 import com.news.newsback.domain.user.api.UserResponse;
 import com.news.newsback.domain.user.domain.SocialProvider;
@@ -29,19 +30,22 @@ public class UserService {
     private final JwtTokenProvider jwtTokenProvider;
     private final SocialAuthClientFactory socialAuthClientFactory;
     private final SocialAuthClient socialAuthClient; // For Mock in tests
+    private final FcmTokenService fcmTokenService;
 
     public UserService(
         UserRepository userRepository,
         PasswordEncoder passwordEncoder,
         JwtTokenProvider jwtTokenProvider,
         @Autowired(required = false) SocialAuthClientFactory socialAuthClientFactory,
-        @Autowired(required = false) @Qualifier("mockSocialAuthClient") SocialAuthClient socialAuthClient
+        @Autowired(required = false) @Qualifier("mockSocialAuthClient") SocialAuthClient socialAuthClient,
+        @Autowired(required = false) FcmTokenService fcmTokenService
     ) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtTokenProvider = jwtTokenProvider;
         this.socialAuthClientFactory = socialAuthClientFactory;
         this.socialAuthClient = socialAuthClient;
+        this.fcmTokenService = fcmTokenService;
     }
 
     private static final Pattern EMAIL_PATTERN =
@@ -123,7 +127,11 @@ public class UserService {
     @Transactional
     public void logout(String refreshToken) {
         User user = validateRefreshTokenAndGetUser(refreshToken);
+        String fcmToken = user.getFcmToken();
         user.logout();
+        if (fcmTokenService != null) {
+            fcmTokenService.disableToken(user.getId(), fcmToken);
+        }
     }
 
     @Transactional
@@ -165,6 +173,9 @@ public class UserService {
 
         // Last-login-wins policy: always rotate and overwrite the previous refresh token hash.
         user.login(fcmToken, hashedRefreshToken);
+        if (fcmTokenService != null) {
+            fcmTokenService.registerToken(user.getId(), fcmToken);
+        }
 
         return AuthResponse.builder()
             .accessToken(tokenPair.accessToken())

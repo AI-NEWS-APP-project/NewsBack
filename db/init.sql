@@ -111,6 +111,31 @@ CREATE TABLE IF NOT EXISTS `today_news_summary_news` (
     CONSTRAINT `fk_today_summary_news_news` FOREIGN KEY (`news_id`) REFERENCES `news` (`id`) ON DELETE CASCADE
 );
 
+-- 11. FCM Tokens
+CREATE TABLE IF NOT EXISTS `fcm_tokens` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `user_id` BIGINT NOT NULL,
+    `token` VARCHAR(512) NOT NULL UNIQUE,
+    `enabled` BOOLEAN NOT NULL DEFAULT TRUE,
+    `last_used_at` DATETIME NULL,
+    `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT `fk_fcm_tokens_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+);
+
+-- 12. Notification Histories
+CREATE TABLE IF NOT EXISTS `notification_histories` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `user_id` BIGINT NOT NULL,
+    `keyword_news_id` BIGINT NOT NULL,
+    `success` BOOLEAN NOT NULL,
+    `failure_reason` TEXT NULL,
+    `sent_at` DATETIME NOT NULL,
+    CONSTRAINT `uk_notification_histories_user_keyword_news` UNIQUE (`user_id`, `keyword_news_id`),
+    CONSTRAINT `fk_notification_histories_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_notification_histories_keyword_news` FOREIGN KEY (`keyword_news_id`) REFERENCES `keyword_news` (`id`) ON DELETE CASCADE
+);
+
 -- Backfill / migration-safe alters for existing environments.
 -- Note: docker-entrypoint-initdb.d scripts run only on first DB volume initialization.
 ALTER TABLE `users`

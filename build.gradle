@@ -38,6 +38,9 @@ dependencies {
     // dotenv (.env 사용)
     implementation 'me.paulschwarz:spring-dotenv:4.0.0'
 
+    // Firebase Cloud Messaging
+    implementation 'com.google.firebase:firebase-admin:9.4.3'
+
     // Lombok
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'

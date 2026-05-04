@@ -1,5 +1,6 @@
 package com.news.newsback.unit.application.user;
 
+import com.news.newsback.application.alarm.FcmTokenService;
 import com.news.newsback.domain.user.api.AuthResponse;
 import com.news.newsback.domain.user.application.UserService;
 import com.news.newsback.domain.user.domain.SocialProvider;
@@ -44,6 +45,9 @@ class UserServiceTest {
 
     @Mock
     private SocialAuthClient socialAuthClient;
+
+    @Mock
+    private FcmTokenService fcmTokenService;
 
     @InjectMocks
     private UserService userService;
@@ -120,6 +124,7 @@ class UserServiceTest {
         assertThat(response.getRefreshToken()).isEqualTo("refresh");
         assertThat(user.getFcmToken()).isEqualTo("fcm-token");
         assertThat(user.getRefreshToken()).isEqualTo("hashed-refresh");
+        verify(fcmTokenService).registerToken(1L, "fcm-token");
     }
 
     @Test
@@ -189,6 +194,7 @@ class UserServiceTest {
 
         assertThat(user.getFcmToken()).isNull();
         assertThat(user.getRefreshToken()).isNull();
+        verify(fcmTokenService).disableToken(1L, "fcm-token");
     }
 
     @Test
