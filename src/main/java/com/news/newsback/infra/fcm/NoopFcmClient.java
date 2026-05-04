@@ -1,14 +1,10 @@
 package com.news.newsback.infra.fcm;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 @Slf4j
-@Component
-@ConditionalOnMissingBean(FcmClient.class)
 public class NoopFcmClient implements FcmClient {
 
     @Override
