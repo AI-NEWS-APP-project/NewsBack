@@ -1,4 +1,4 @@
-정package com.news.newsback.infra.fcm;
+package com.news.newsback.infra.fcm;
 
 import com.google.firebase.messaging.FirebaseMessaging;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
