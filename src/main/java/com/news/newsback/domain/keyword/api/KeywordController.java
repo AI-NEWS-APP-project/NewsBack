@@ -45,17 +45,10 @@ public class KeywordController {
         return CommonReponse.success("키워드 일괄 등록 성공");
     }
 
-    @DeleteMapping
-    @Operation(summary = "키워드 삭제", description = "기존 키워드를 삭제합니다.")
-    public CommonReponse<String> deleteKeyword(@RequestParam Long userId, @RequestParam String keyword) {
-        keywordService.deleteKeyword(userId, keyword);
-        return CommonReponse.success("키워드 삭제 성공: " + keyword);
-    }
-
     @DeleteMapping("/{keywordId}")
-    @Operation(summary = "키워드 삭제", description = "구독 중인 키워드를 삭제합니다.")
-    public CommonReponse<String> deleteKeywordById(@RequestParam Long userId, @PathVariable Long keywordId) {
-        keywordService.deleteKeyword(userId, keywordId.toString());
+    @Operation(summary = "키워드 구독 취소", description = "구독 중인 키워드를 삭제합니다.")
+    public CommonReponse<String> unsubscribeKeyword(@RequestParam Long userId, @PathVariable Long keywordId) {
+        keywordService.unsubscribeKeyword(userId, keywordId.toString());
         return CommonReponse.success("키워드 삭제 성공: " + keywordId);
     }
 }
