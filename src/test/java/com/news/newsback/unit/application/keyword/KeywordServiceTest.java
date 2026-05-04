@@ -125,15 +125,19 @@ class KeywordServiceTest {
         @Test
         @DisplayName("성공: 구독 중인 키워드를 해지하면 정상적으로 삭제 처리가 된다.")
         void successfulKeywordUnsubscriptionTest() {
-            // given
             Long userId = 1L;
             String rawKeyword = " AI ";
             keywordService.registerKeyword(userId, rawKeyword);
 
-            // when
-            keywordService.unsubscribeKeyword(userId, rawKeyword);
+            Long keywordId = 1L;
+            when(userKeywordRepository.existsByUserIdAndKeywordId(userId, keywordId)).thenReturn(true);
 
-            // then
+            Keyword keyword = new Keyword("AI");
+            keyword.setId(keywordId);
+            when(keywordRepository.findById(keywordId)).thenReturn(Optional.of(keyword));
+
+            keywordService.unsubscribeKeyword(userId, keywordId);
+
             verify(keywordRepository).delete(any(Keyword.class));
         }
     }

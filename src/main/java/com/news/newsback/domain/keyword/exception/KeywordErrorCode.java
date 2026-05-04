@@ -16,7 +16,9 @@ public enum KeywordErrorCode implements ErrorCode {
     // 키워드 중복
     DUPLICATE_KEYWORD("중복된 키워드입니다."),
 
-    KEYWORD_NOT_FOUND("키워드를 찾을 수 없습니다.");
+    KEYWORD_NOT_FOUND("키워드를 찾을 수 없습니다."),
+
+    KEYWORD_NOT_SUBSCRIBED("해당 키워드가 구독되지 않았습니다.");
 
     private final String message;
 
