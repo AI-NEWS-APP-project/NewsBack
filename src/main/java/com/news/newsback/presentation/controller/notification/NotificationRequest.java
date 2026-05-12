@@ -1,4 +1,4 @@
-package com.news.newsback.presentation.controller.alarm;
+package com.news.newsback.presentation.controller.notification;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
@@ -7,17 +7,13 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-public class AlarmRequest {
+public class NotificationRequest {
 
     @Getter
     @NoArgsConstructor
     @AllArgsConstructor
     @Schema(description = "FCM 토큰 등록 요청")
     public static class FcmToken {
-
-        @NotNull(message = "사용자 ID는 필수입니다")
-        @Schema(description = "사용자 ID", example = "1")
-        private Long userId;
 
         @NotBlank(message = "FCM 토큰은 필수입니다")
         @Schema(description = "FCM registration token", example = "fcm-token")

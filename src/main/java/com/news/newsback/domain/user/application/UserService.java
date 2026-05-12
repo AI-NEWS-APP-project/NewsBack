@@ -1,6 +1,6 @@
 package com.news.newsback.domain.user.application;
 
-import com.news.newsback.application.alarm.FcmTokenService;
+import com.news.newsback.application.notification.FcmTokenService;
 import com.news.newsback.domain.user.api.AuthResponse;
 import com.news.newsback.domain.user.api.UserResponse;
 import com.news.newsback.domain.user.domain.SocialProvider;
@@ -127,17 +127,13 @@ public class UserService {
     @Transactional
     public void logout(String refreshToken) {
         User user = validateRefreshTokenAndGetUser(refreshToken);
-        String fcmToken = user.getFcmToken();
         user.logout();
-        if (fcmTokenService != null) {
-            fcmTokenService.disableToken(user.getId(), fcmToken);
-        }
     }
 
     @Transactional
     public AuthResponse refresh(String refreshToken) {
         User user = validateRefreshTokenAndGetUser(refreshToken);
-        return issueTokens(user, user.getFcmToken());
+        return issueTokens(user, null);
     }
 
     private void validateEmailFormat(String email) {
@@ -172,8 +168,8 @@ public class UserService {
         String hashedRefreshToken = passwordEncoder.encode(tokenPair.refreshToken());
 
         // Last-login-wins policy: always rotate and overwrite the previous refresh token hash.
-        user.login(fcmToken, hashedRefreshToken);
-        if (fcmTokenService != null) {
+        user.login(hashedRefreshToken);
+        if (fcmTokenService != null && fcmToken != null && !fcmToken.isBlank()) {
             fcmTokenService.registerToken(user.getId(), fcmToken);
         }
 

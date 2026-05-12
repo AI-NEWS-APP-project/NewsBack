@@ -1,6 +1,6 @@
 package com.news.newsback.application.news;
 
-import com.news.newsback.application.alarm.PushNotificationService;
+import com.news.newsback.application.notification.PushNotificationService;
 import com.news.newsback.domain.keyword.domain.Keyword;
 import com.news.newsback.domain.keyword.domain.KeywordRepository;
 import com.news.newsback.domain.news.exception.NewsErrorCode;

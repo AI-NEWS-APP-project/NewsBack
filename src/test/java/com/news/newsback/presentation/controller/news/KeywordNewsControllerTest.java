@@ -46,7 +46,7 @@ class KeywordNewsControllerTest {
     void 최신_요약_리스트_조회() throws Exception {
         when(keywordNewsService.getLatestKeywordNews()).thenReturn(List.of(keywordNewsResponse()));
 
-        mockMvc.perform(get("/api/news/keyword-news/latest")
+        mockMvc.perform(get("/news/keyword-news/latest")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
@@ -64,7 +64,7 @@ class KeywordNewsControllerTest {
         when(keywordNewsService.getKeywordNewsHistory(org.mockito.Mockito.eq(1L), org.mockito.Mockito.any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of(keywordNewsResponse())));
 
-        mockMvc.perform(get("/api/news/keyword-news")
+        mockMvc.perform(get("/news/keyword-news")
                         .param("keywordId", "1")
                         .param("page", "0")
                         .param("size", "6")
@@ -86,7 +86,7 @@ class KeywordNewsControllerTest {
     void 요약_상세_조회() throws Exception {
         when(keywordNewsService.getKeywordNewsDetail(1L)).thenReturn(keywordNewsDetailResponse());
 
-        mockMvc.perform(get("/api/news/keyword-news/1")
+        mockMvc.perform(get("/news/keyword-news/1")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))

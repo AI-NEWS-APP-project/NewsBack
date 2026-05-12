@@ -14,6 +14,37 @@ public class TodayNewsResponse {
 
     @Getter
     @Builder
+    @Schema(description = "일일 뉴스 요약 응답")
+    public static class Summary {
+
+        @Schema(description = "일일 뉴스 요약 ID", example = "1")
+        private Long id;
+
+        @Schema(description = "일일 뉴스 요약 제목", example = "최근 주요 뉴스 종합")
+        private String title;
+
+        @Schema(description = "일일 주요 뉴스 요약", example = "오늘은 반도체 투자와 외교 이슈가 주요 뉴스로 다뤄졌습니다.")
+        private String summary;
+
+        @Schema(description = "요약에 반영된 뉴스 개수", example = "20")
+        private Integer newsCount;
+
+        @Schema(description = "요약 생성 시각", example = "2026-05-01T20:00:00")
+        private LocalDateTime generatedAt;
+
+        public static Summary from(TodayNewsSummary summary) {
+            return Summary.builder()
+                    .id(summary.getId())
+                    .title(summary.getTitle())
+                    .summary(summary.getSummary())
+                    .newsCount(summary.getNewsCount())
+                    .generatedAt(summary.getGeneratedAt())
+                    .build();
+        }
+    }
+
+    @Getter
+    @Builder
     @Schema(description = "일일 뉴스 요약 상세 응답")
     public static class Detail {
 

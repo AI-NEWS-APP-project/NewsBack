@@ -60,6 +60,12 @@ public class JwtTokenProvider {
         return Long.valueOf(String.valueOf(claims.get("sub")));
     }
 
+    public Long extractValidAccessUserId(String token) {
+        Map<String, Object> claims = parseClaims(token);
+        validateTokenType(claims, "ACCESS");
+        return Long.valueOf(String.valueOf(claims.get("sub")));
+    }
+
     private String buildToken(Long userId, String email, String tokenType, LocalDateTime expiresAt) {
         long nowEpoch = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC);
         long expEpoch = expiresAt.toEpochSecond(ZoneOffset.UTC);

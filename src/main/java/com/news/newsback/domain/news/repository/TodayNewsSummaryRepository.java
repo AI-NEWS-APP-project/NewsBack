@@ -10,4 +10,7 @@ public interface TodayNewsSummaryRepository extends JpaRepository<TodayNewsSumma
 
     @EntityGraph(attributePaths = {"summaryNews", "summaryNews.news"})
     Optional<TodayNewsSummary> findFirstByOrderByGeneratedAtDesc();
+
+    @EntityGraph(attributePaths = {"summaryNews", "summaryNews.news"})
+    Optional<TodayNewsSummary> findWithSummaryNewsById(Long id);
 }

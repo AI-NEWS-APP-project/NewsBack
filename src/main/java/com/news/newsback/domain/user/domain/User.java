@@ -25,9 +25,6 @@ public class User {
     @Column(name = "social_provider", nullable = false, length = 20)
     private SocialProvider socialProvider;
 
-    @Column(name = "fcm_token", columnDefinition = "TEXT")
-    private String fcmToken;
-
     @Column(name = "refresh_token", length = 255)
     private String refreshToken;
 
@@ -43,13 +40,8 @@ public class User {
         this.createdAt = java.time.LocalDateTime.now();
     }
 
-    public void login(String fcmToken, String hashedRefreshToken) {
-        this.fcmToken = fcmToken;
+    public void login(String hashedRefreshToken) {
         this.refreshToken = hashedRefreshToken;
-    }
-
-    public void updateFcmToken(String fcmToken) {
-        this.fcmToken = fcmToken;
     }
 
     public void updateRefreshToken(String hashedToken) {
@@ -57,7 +49,6 @@ public class User {
     }
 
     public void logout() {
-        this.fcmToken = null;
         this.refreshToken = null;
     }
 
@@ -66,8 +57,4 @@ public class User {
         this.globalPushEnabled = enabled;
     }
 
-    // 비즈니스 로직: 알림 수신 가능 여부 확인
-    public boolean canReceivePushNotification() {
-        return this.globalPushEnabled && this.fcmToken != null;
-    }
 }

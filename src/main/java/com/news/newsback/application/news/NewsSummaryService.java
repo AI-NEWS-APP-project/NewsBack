@@ -1,6 +1,6 @@
 package com.news.newsback.application.news;
 
-import com.news.newsback.application.alarm.PushNotificationService;
+import com.news.newsback.application.notification.PushNotificationService;
 import com.news.newsback.domain.keyword.domain.Keyword;
 import com.news.newsback.domain.keyword.domain.KeywordRepository;
 import com.news.newsback.domain.keyword.util.KeywordNormalizer;
@@ -14,6 +14,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -124,8 +126,30 @@ public class NewsSummaryService {
         }
 
         KeywordNews savedKeywordNews = keywordNewsRepository.save(keywordNews);
-        pushNotificationService.sendKeywordNews(savedKeywordNews);
+        requestKeywordNewsPushAfterCommit(savedKeywordNews);
         log.info("Saved keyword news summary for: {}", keyword.getName());
+    }
+
+    private void requestKeywordNewsPushAfterCommit(KeywordNews keywordNews) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            sendKeywordNewsPush(keywordNews);
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                sendKeywordNewsPush(keywordNews);
+            }
+        });
+    }
+
+    private void sendKeywordNewsPush(KeywordNews keywordNews) {
+        try {
+            pushNotificationService.sendKeywordNews(keywordNews);
+        } catch (Exception e) {
+            log.error("Failed to send keyword news push notification. keywordNewsId={}", keywordNews.getId(), e);
+        }
     }
 
     @Transactional

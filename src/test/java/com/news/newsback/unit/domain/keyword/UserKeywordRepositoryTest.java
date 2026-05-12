@@ -38,7 +38,6 @@ class UserKeywordRepositoryTest {
                 .email("test@example.com")
                 .password("password")
                 .socialProvider(com.news.newsback.domain.user.domain.SocialProvider.GOOGLE)
-                .fcmToken("fcmToken")
                 .refreshToken("refreshToken")
                 .globalPushEnabled(true)
                 .createdAt(java.time.LocalDateTime.now())

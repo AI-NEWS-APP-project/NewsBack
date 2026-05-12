@@ -1,4 +1,4 @@
-package com.news.newsback.domain.alarm.model;
+package com.news.newsback.domain.notification.model;
 
 import com.news.newsback.domain.news.model.KeywordNews;
 import com.news.newsback.domain.user.domain.User;
@@ -33,6 +33,15 @@ public class NotificationHistory {
     @JoinColumn(name = "keyword_news_id", nullable = false)
     private KeywordNews keywordNews;
 
+    @Column(nullable = false, length = 255)
+    private String title;
+
+    @Column(nullable = false, length = 1000)
+    private String body;
+
+    @Column(nullable = false, length = 512)
+    private String route;
+
     @Column(nullable = false)
     private boolean success;
 
@@ -42,22 +51,44 @@ public class NotificationHistory {
     @Column(name = "sent_at", nullable = false)
     private LocalDateTime sentAt;
 
-    public static NotificationHistory success(User user, KeywordNews keywordNews) {
+    @Column(name = "read_at")
+    private LocalDateTime readAt;
+
+    public static NotificationHistory success(User user, KeywordNews keywordNews, String title, String body, String route) {
         return NotificationHistory.builder()
                 .user(user)
                 .keywordNews(keywordNews)
+                .title(title)
+                .body(body)
+                .route(route)
                 .success(true)
                 .sentAt(LocalDateTime.now())
                 .build();
     }
 
-    public static NotificationHistory failure(User user, KeywordNews keywordNews, String failureReason) {
+    public static NotificationHistory failure(
+            User user,
+            KeywordNews keywordNews,
+            String title,
+            String body,
+            String route,
+            String failureReason
+    ) {
         return NotificationHistory.builder()
                 .user(user)
                 .keywordNews(keywordNews)
+                .title(title)
+                .body(body)
+                .route(route)
                 .success(false)
                 .failureReason(failureReason)
                 .sentAt(LocalDateTime.now())
                 .build();
+    }
+
+    public void markAsRead() {
+        if (readAt == null) {
+            readAt = LocalDateTime.now();
+        }
     }
 }

@@ -26,10 +26,13 @@ public class AiServerClient implements AiClient {
     @Value("${backend.url}")
     private String backendUrl;
 
+    @Value("${server.servlet.context-path:}")
+    private String contextPath;
+
     @Override
     public void requestClusterId(List<News> newsList) {
         String requestId = UUID.randomUUID().toString();
-        String callbackUrl = backendUrl + "/callback/cluster-id";
+        String callbackUrl = buildCallbackUrl("/callback/cluster-id");
 
         List<AiRequest.RowNews> rowNewsList = newsList.stream()
                 .map(this::toAiRowNews)
@@ -47,7 +50,7 @@ public class AiServerClient implements AiClient {
     @Override
     public void requestClusterNewsSummary(ClusterNews clusterNews, List<News> newsList) {
         String requestId = UUID.randomUUID().toString();
-        String callbackUrl = backendUrl + "/callback/cluster-news";
+        String callbackUrl = buildCallbackUrl("/callback/cluster-news");
 
         List<AiRequest.RowNews> rowNewsList = newsList.stream()
                 .map(this::toAiRowNews)
@@ -66,7 +69,7 @@ public class AiServerClient implements AiClient {
     @Override
     public void requestKeywordNewsSummary(Keyword keyword, List<ClusterNews> clusterNewsList) {
         String requestId = UUID.randomUUID().toString();
-        String callbackUrl = backendUrl + "/callback/keynews";
+        String callbackUrl = buildCallbackUrl("/callback/keynews");
 
         List<AiRequest.ClusterNewsItem> clusterItems = clusterNewsList.stream()
                 .map(c -> AiRequest.ClusterNewsItem.builder()
@@ -90,7 +93,7 @@ public class AiServerClient implements AiClient {
     @Override
     public void requestTodayNewsSummary(int topKImportant, int topKLatest, int timeWindowHours) {
         String requestId = UUID.randomUUID().toString();
-        String callbackUrl = backendUrl + "/callback/today-news";
+        String callbackUrl = buildCallbackUrl("/callback/today-news");
 
         AiRequest.TodayNewsRequest request = AiRequest.TodayNewsRequest.builder()
                 .requestId(requestId)
@@ -111,6 +114,24 @@ public class AiServerClient implements AiClient {
             log.error("Failed to send request to AI server: {}", path, e);
             throw new AiServerRequestException("AI server request failed: " + path, e);
         }
+    }
+
+    private String buildCallbackUrl(String callbackPath) {
+        return trimTrailingSlash(backendUrl) + normalizePath(contextPath) + callbackPath;
+    }
+
+    private String trimTrailingSlash(String url) {
+        if (url == null || url.isBlank()) {
+            return "";
+        }
+        return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
+    }
+
+    private String normalizePath(String path) {
+        if (path == null || path.isBlank() || "/".equals(path)) {
+            return "";
+        }
+        return path.startsWith("/") ? path : "/" + path;
     }
 
     private AiRequest.RowNews toAiRowNews(News news) {

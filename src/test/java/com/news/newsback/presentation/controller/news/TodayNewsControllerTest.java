@@ -38,11 +38,11 @@ class TodayNewsControllerTest {
 
     @Test
     @WithMockUser
-    @DisplayName("최신 일일 통합 브리핑을 조회한다")
+    @DisplayName("최신 일일 통합 브리핑을 원본 뉴스 없이 조회한다")
     void 최신_일일_통합_브리핑_조회() throws Exception {
-        when(todayNewsService.getLatestTodayNewsSummary()).thenReturn(todayNewsResponse());
+        when(todayNewsService.getLatestTodayNewsSummary()).thenReturn(todayNewsSummaryResponse());
 
-        mockMvc.perform(get("/api/news/daily-briefings")
+        mockMvc.perform(get("/news/daily-briefings")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
@@ -50,13 +50,39 @@ class TodayNewsControllerTest {
                 .andExpect(jsonPath("$.data.title").value("최근 주요 뉴스 종합"))
                 .andExpect(jsonPath("$.data.summary").value("오늘의 주요 뉴스 요약"))
                 .andExpect(jsonPath("$.data.newsCount").value(1))
-                .andExpect(jsonPath("$.data.news[0].title").value("기사 제목"))
-                .andExpect(jsonPath("$.data.news[0].url").value("https://news.example.com/1"));
+                .andExpect(jsonPath("$.data.news").doesNotExist());
 
         verify(todayNewsService).getLatestTodayNewsSummary();
     }
 
-    private TodayNewsResponse.Detail todayNewsResponse() {
+    @Test
+    @WithMockUser
+    @DisplayName("일일 통합 브리핑 상세를 원본 뉴스 링크와 함께 조회한다")
+    void 일일_통합_브리핑_상세_조회() throws Exception {
+        when(todayNewsService.getTodayNewsSummaryDetail(1L)).thenReturn(todayNewsDetailResponse());
+
+        mockMvc.perform(get("/news/daily-briefings/1")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.id").value(1))
+                .andExpect(jsonPath("$.data.news[0].title").value("기사 제목"))
+                .andExpect(jsonPath("$.data.news[0].url").value("https://news.example.com/1"));
+
+        verify(todayNewsService).getTodayNewsSummaryDetail(1L);
+    }
+
+    private TodayNewsResponse.Summary todayNewsSummaryResponse() {
+        return TodayNewsResponse.Summary.builder()
+                .id(1L)
+                .title("최근 주요 뉴스 종합")
+                .summary("오늘의 주요 뉴스 요약")
+                .newsCount(1)
+                .generatedAt(LocalDateTime.of(2026, 5, 1, 20, 0))
+                .build();
+    }
+
+    private TodayNewsResponse.Detail todayNewsDetailResponse() {
         return TodayNewsResponse.Detail.builder()
                 .id(1L)
                 .title("최근 주요 뉴스 종합")
