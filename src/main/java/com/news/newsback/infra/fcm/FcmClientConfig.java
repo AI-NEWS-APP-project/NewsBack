@@ -1,23 +1,23 @@
 package com.news.newsback.infra.fcm;
 
 import com.google.firebase.messaging.FirebaseMessaging;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+@Slf4j
 @Configuration
 public class FcmClientConfig {
 
     @Bean
-    @ConditionalOnBean(FirebaseMessaging.class)
-    public FcmClient firebaseFcmClient(FirebaseMessaging firebaseMessaging) {
-        return new FirebaseFcmClient(firebaseMessaging);
-    }
-
-    @Bean
-    @ConditionalOnMissingBean(FcmClient.class)
-    public FcmClient noopFcmClient() {
+    public FcmClient fcmClient(ObjectProvider<FirebaseMessaging> firebaseMessagingProvider) {
+        FirebaseMessaging firebaseMessaging = firebaseMessagingProvider.getIfAvailable();
+        if (firebaseMessaging != null) {
+            log.info("Firebase FCM client is configured.");
+            return new FirebaseFcmClient(firebaseMessaging);
+        }
+        log.warn("Firebase credential is not configured. Use NoopFcmClient.");
         return new NoopFcmClient();
     }
 }

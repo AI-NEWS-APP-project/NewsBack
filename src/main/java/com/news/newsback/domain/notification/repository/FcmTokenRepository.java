@@ -1,6 +1,6 @@
-package com.news.newsback.domain.alarm.repository;
+package com.news.newsback.domain.notification.repository;
 
-import com.news.newsback.domain.alarm.model.FcmToken;
+import com.news.newsback.domain.notification.model.FcmToken;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 

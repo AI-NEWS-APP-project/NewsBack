@@ -1,6 +1,6 @@
 package com.news.newsback.unit.application.user;
 
-import com.news.newsback.application.alarm.FcmTokenService;
+import com.news.newsback.application.notification.FcmTokenService;
 import com.news.newsback.domain.user.api.AuthResponse;
 import com.news.newsback.domain.user.application.UserService;
 import com.news.newsback.domain.user.domain.SocialProvider;
@@ -101,7 +101,7 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("credential 로그인 성공 시 토큰 발급 및 FCM 토큰 업데이트")
+    @DisplayName("credential 로그인 성공 시 토큰 발급 및 FCM 토큰 등록")
     void 로그인_성공() {
         User user = User.builder()
             .id(1L)
@@ -122,7 +122,6 @@ class UserServiceTest {
 
         assertThat(response.getAccessToken()).isEqualTo("access");
         assertThat(response.getRefreshToken()).isEqualTo("refresh");
-        assertThat(user.getFcmToken()).isEqualTo("fcm-token");
         assertThat(user.getRefreshToken()).isEqualTo("hashed-refresh");
         verify(fcmTokenService).registerToken(1L, "fcm-token");
     }
@@ -153,7 +152,6 @@ class UserServiceTest {
                 .email(user.getEmail())
                 .password(user.getPassword())
                 .socialProvider(user.getSocialProvider())
-                .fcmToken(user.getFcmToken())
                 .globalPushEnabled(user.getGlobalPushEnabled())
                 .build();
         });
@@ -175,14 +173,13 @@ class UserServiceTest {
     }
 
     @Test
-    @DisplayName("로그아웃 성공 시 refresh 토큰 세션 삭제 및 FCM 토큰 제거")
+    @DisplayName("로그아웃 성공 시 refresh 토큰 세션을 삭제한다")
     void 로그아웃_성공() {
         User user = User.builder()
             .id(1L)
             .email("test@example.com")
             .password("encoded")
             .socialProvider(SocialProvider.LOCAL)
-            .fcmToken("fcm-token")
             .refreshToken("hashed-refresh-token")
             .build();
 
@@ -192,9 +189,8 @@ class UserServiceTest {
 
         userService.logout("refresh-token");
 
-        assertThat(user.getFcmToken()).isNull();
         assertThat(user.getRefreshToken()).isNull();
-        verify(fcmTokenService).disableToken(1L, "fcm-token");
+        verifyNoInteractions(fcmTokenService);
     }
 
     @Test
@@ -225,7 +221,6 @@ class UserServiceTest {
             .email("test@example.com")
             .password("encoded")
             .socialProvider(SocialProvider.LOCAL)
-            .fcmToken("fcm-token")
             .refreshToken("hashed-old-refresh")
             .build();
 

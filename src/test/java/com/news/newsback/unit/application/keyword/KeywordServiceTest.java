@@ -57,7 +57,6 @@ class KeywordServiceTest {
                 .email("test@example.com")
                 .password("password")
                 .socialProvider(com.news.newsback.domain.user.domain.SocialProvider.GOOGLE)
-                .fcmToken("fcmToken")
                 .refreshToken("refreshToken")
                 .globalPushEnabled(true)
                 .createdAt(java.time.LocalDateTime.now())
@@ -138,7 +137,7 @@ class KeywordServiceTest {
 
             keywordService.unsubscribeKeyword(userId, keywordId);
 
-            verify(keywordRepository).delete(any(Keyword.class));
+            verify(userKeywordRepository).deleteByUserIdAndKeywordId(userId, keywordId);
         }
     }
 
@@ -150,7 +149,7 @@ class KeywordServiceTest {
         @DisplayName("성공: 가장 많이 사용된 인기 키워드 목록을 정상적으로 반환한다.")
         void successfulPopularKeywordRetrievalTest() {
             // given: 인기 키워드 데이터
-            when(keywordRepository.findPopularKeywords()).thenReturn(List.of("ai", "ml"));
+            when(userKeywordRepository.findPopularKeywords()).thenReturn(List.of("ai", "ml"));
 
             // when
             List<String> popularKeywords = keywordService.retrievePopularKeywords();

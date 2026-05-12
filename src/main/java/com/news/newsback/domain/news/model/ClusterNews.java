@@ -1,6 +1,5 @@
 package com.news.newsback.domain.news.model;
 
-import com.news.newsback.domain.keyword.domain.Keyword;
 import com.news.newsback.global.common.BaseTimeEntity;
 import jakarta.persistence.*;
 import lombok.*;
@@ -16,10 +15,6 @@ public class ClusterNews extends BaseTimeEntity {
     @Id
     @Column(length = 36)
     private String id; // UUID
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "keyword_id")
-    private Keyword keyword;
 
     @Column(length = 500)
     private String title;

@@ -7,6 +7,17 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 @Entity
+@Table(
+        name = "user_keyword",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_user_keyword_user_keyword",
+                columnNames = {"user_id", "keyword_id"}
+        ),
+        indexes = {
+                @Index(name = "idx_user_keyword_user_id", columnList = "user_id"),
+                @Index(name = "idx_user_keyword_keyword_id", columnList = "keyword_id")
+        }
+)
 @Getter
 @NoArgsConstructor
 public class UserKeyword extends BaseTimeEntity {

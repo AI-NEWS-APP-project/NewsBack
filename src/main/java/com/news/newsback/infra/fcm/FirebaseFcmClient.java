@@ -19,6 +19,11 @@ public class FirebaseFcmClient implements FcmClient {
 
     @Override
     public List<FcmSendResult> sendToTokens(List<String> tokens, PushMessage message) {
+        if (tokens.isEmpty()) {
+            log.info("Skip FCM send because token list is empty. title={}", message.title());
+            return List.of();
+        }
+
         List<FcmSendResult> results = new ArrayList<>();
         for (int start = 0; start < tokens.size(); start += MAX_MULTICAST_SIZE) {
             int end = Math.min(start + MAX_MULTICAST_SIZE, tokens.size());
@@ -39,6 +44,14 @@ public class FirebaseFcmClient implements FcmClient {
 
         try {
             BatchResponse response = firebaseMessaging.sendEachForMulticast(multicastMessage);
+            log.info(
+                    "FCM multicast response. requested={}, success={}, failure={}, title={}",
+                    tokens.size(),
+                    response.getSuccessCount(),
+                    response.getFailureCount(),
+                    message.title()
+            );
+
             List<FcmSendResult> results = new ArrayList<>();
             List<SendResponse> responses = response.getResponses();
             for (int i = 0; i < responses.size(); i++) {
@@ -49,6 +62,7 @@ public class FirebaseFcmClient implements FcmClient {
                 } else {
                     FirebaseMessagingException exception = sendResponse.getException();
                     String reason = exception == null ? "UNKNOWN" : exception.getMessagingErrorCode().name();
+                    log.warn("FCM send failed. token={}, reason={}", mask(token), reason);
                     results.add(FcmSendResult.failure(token, reason, isInvalidToken(exception)));
                 }
             }
@@ -60,6 +74,13 @@ public class FirebaseFcmClient implements FcmClient {
                     .map(token -> FcmSendResult.failure(token, reason, isInvalidToken(e)))
                     .toList();
         }
+    }
+
+    private String mask(String token) {
+        if (token == null || token.length() <= 12) {
+            return "****";
+        }
+        return token.substring(0, 6) + "..." + token.substring(token.length() - 6);
     }
 
     private boolean isInvalidToken(FirebaseMessagingException exception) {

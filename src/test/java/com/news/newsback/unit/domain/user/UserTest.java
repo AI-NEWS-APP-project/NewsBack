@@ -23,36 +23,17 @@ class UserTest {
     }
 
     @Test
-    @DisplayName("FCM 토큰 업데이트/삭제")
-    void fcm_토큰_업데이트_삭제() {
+    @DisplayName("로그아웃 시 refreshToken만 제거한다")
+    void 로그아웃_검증() {
         User user = User.builder()
             .email("test@example.com")
             .password("encoded")
             .socialProvider(SocialProvider.LOCAL)
+            .refreshToken("hashed-refresh")
             .build();
-
-        user.updateFcmToken("fcm-token");
-        assertThat(user.getFcmToken()).isEqualTo("fcm-token");
 
         user.logout();
-        assertThat(user.getFcmToken()).isNull();
-    }
 
-    @Test
-    @DisplayName("알림 수신 가능 여부는 globalPushEnabled && fcmToken != null")
-    void canReceivePushNotification_검증() {
-        User user = User.builder()
-            .email("test@example.com")
-            .password("encoded")
-            .socialProvider(SocialProvider.LOCAL)
-            .build();
-
-        assertThat(user.canReceivePushNotification()).isFalse();
-
-        user.updateFcmToken("fcm-token");
-        assertThat(user.canReceivePushNotification()).isTrue();
-
-        user.updateGlobalPushEnabled(false);
-        assertThat(user.canReceivePushNotification()).isFalse();
+        assertThat(user.getRefreshToken()).isNull();
     }
 }

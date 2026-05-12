@@ -7,14 +7,13 @@ CREATE TABLE IF NOT EXISTS `users` (
     `email` VARCHAR(255) NOT NULL UNIQUE,
     `password` VARCHAR(255) NULL COMMENT '소셜 가입자는 null',
     `social_provider` VARCHAR(20) NOT NULL COMMENT 'LOCAL, GOOGLE, KAKAO',
-    `fcm_token` TEXT NULL COMMENT '로그아웃 시 NULL로 업데이트',
     `refresh_token` VARCHAR(255) NULL COMMENT 'BCrypt 해시 refresh token (단일 세션, 재로그인 시 갱신)',
     `global_push_enabled` BOOLEAN NOT NULL DEFAULT TRUE,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 2. Keywords
-CREATE TABLE IF NOT EXISTS `keywords` (
+CREATE TABLE IF NOT EXISTS `keyword` (
     `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
     `name` VARCHAR(255) NOT NULL UNIQUE,
     `usage_count` INT NOT NULL DEFAULT 0,
@@ -23,14 +22,15 @@ CREATE TABLE IF NOT EXISTS `keywords` (
 );
 
 -- 3. User-Keywords
-CREATE TABLE IF NOT EXISTS `user_keywords` (
+CREATE TABLE IF NOT EXISTS `user_keyword` (
     `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
     `user_id` BIGINT NOT NULL,
     `keyword_id` BIGINT NOT NULL,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT `fk_user_keywords_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-    CONSTRAINT `fk_user_keywords_keyword` FOREIGN KEY (`keyword_id`) REFERENCES `keywords` (`id`) ON DELETE CASCADE
+    CONSTRAINT `fk_user_keyword_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_user_keyword_keyword` FOREIGN KEY (`keyword_id`) REFERENCES `keyword` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `uk_user_keyword_user_keyword` UNIQUE (`user_id`, `keyword_id`)
 );
 
 -- 4. News
@@ -54,14 +54,12 @@ CREATE TABLE IF NOT EXISTS `news` (
 -- 5. Cluster News
 CREATE TABLE IF NOT EXISTS `cluster_news` (
     `id` CHAR(36) PRIMARY KEY COMMENT 'UUID',
-    `keyword_id` BIGINT NULL COMMENT '팀 합의 전 임시 필드',
     `title` VARCHAR(500) NULL COMMENT '대표 제목',
     `representative_summary` TEXT NULL COMMENT '클러스터 대표 요약',
     `news_count` INT DEFAULT 1 COMMENT '현재 포함된 기사 수',
     `last_summarized_count` INT DEFAULT 1 COMMENT '마지막 요약 시점의 기사 수',
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT `fk_cluster_news_keyword` FOREIGN KEY (`keyword_id`) REFERENCES `keywords` (`id`) ON DELETE SET NULL
+    `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- 6. Keyword News
@@ -69,10 +67,9 @@ CREATE TABLE IF NOT EXISTS `keyword_news` (
     `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
     `keyword_id` BIGINT NOT NULL,
     `summary_text` TEXT NOT NULL,
-    `summary_hash` VARCHAR(64) NULL COMMENT '이전 요약본과의 유사도 비교용',
     `cluster_news_count` INT DEFAULT 1,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT `fk_keyword_news_keyword` FOREIGN KEY (`keyword_id`) REFERENCES `keywords` (`id`) ON DELETE CASCADE
+    CONSTRAINT `fk_keyword_news_keyword` FOREIGN KEY (`keyword_id`) REFERENCES `keyword` (`id`) ON DELETE CASCADE
 );
 
 -- 7. Keyword News Links
@@ -128,9 +125,13 @@ CREATE TABLE IF NOT EXISTS `notification_histories` (
     `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
     `user_id` BIGINT NOT NULL,
     `keyword_news_id` BIGINT NOT NULL,
+    `title` VARCHAR(255) NOT NULL,
+    `body` VARCHAR(1000) NOT NULL,
+    `route` VARCHAR(512) NOT NULL,
     `success` BOOLEAN NOT NULL,
     `failure_reason` TEXT NULL,
     `sent_at` DATETIME NOT NULL,
+    `read_at` DATETIME NULL COMMENT 'NULL이면 미읽음, 값이 있으면 읽은 시각',
     CONSTRAINT `uk_notification_histories_user_keyword_news` UNIQUE (`user_id`, `keyword_news_id`),
     CONSTRAINT `fk_notification_histories_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
     CONSTRAINT `fk_notification_histories_keyword_news` FOREIGN KEY (`keyword_news_id`) REFERENCES `keyword_news` (`id`) ON DELETE CASCADE
@@ -146,7 +147,37 @@ ALTER TABLE `users`
     ADD COLUMN IF NOT EXISTS `global_push_enabled` BOOLEAN NOT NULL DEFAULT TRUE;
 ALTER TABLE `users`
     MODIFY COLUMN `global_push_enabled` BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE `users`
+    DROP COLUMN IF EXISTS `fcm_token`;
+CREATE INDEX IF NOT EXISTS `idx_user_keyword_user_id` ON `user_keyword` (`user_id`);
+CREATE INDEX IF NOT EXISTS `idx_user_keyword_keyword_id` ON `user_keyword` (`keyword_id`);
+CREATE UNIQUE INDEX IF NOT EXISTS `uk_user_keyword_user_keyword` ON `user_keyword` (`user_id`, `keyword_id`);
+SET @drop_cluster_news_keyword_fk = (
+    SELECT IF(
+        EXISTS (
+            SELECT 1
+            FROM information_schema.TABLE_CONSTRAINTS
+            WHERE CONSTRAINT_SCHEMA = DATABASE()
+              AND TABLE_NAME = 'cluster_news'
+              AND CONSTRAINT_NAME = 'fk_cluster_news_keyword'
+              AND CONSTRAINT_TYPE = 'FOREIGN KEY'
+        ),
+        'ALTER TABLE `cluster_news` DROP FOREIGN KEY `fk_cluster_news_keyword`',
+        'SELECT 1'
+    )
+);
+PREPARE drop_cluster_news_keyword_fk_stmt FROM @drop_cluster_news_keyword_fk;
+EXECUTE drop_cluster_news_keyword_fk_stmt;
+DEALLOCATE PREPARE drop_cluster_news_keyword_fk_stmt;
+ALTER TABLE `cluster_news`
+    DROP COLUMN IF EXISTS `keyword_id`;
 ALTER TABLE `keyword_news`
     ADD COLUMN IF NOT EXISTS `cluster_news_count` INT DEFAULT 1;
-ALTER TABLE `keyword_news`
-    ADD COLUMN IF NOT EXISTS `summary_hash` VARCHAR(64) NULL COMMENT '이전 요약본과의 유사도 비교용';
+ALTER TABLE `notification_histories`
+    ADD COLUMN IF NOT EXISTS `read_at` DATETIME NULL COMMENT 'NULL이면 미읽음, 값이 있으면 읽은 시각';
+ALTER TABLE `notification_histories`
+    ADD COLUMN IF NOT EXISTS `title` VARCHAR(255) NOT NULL DEFAULT '';
+ALTER TABLE `notification_histories`
+    ADD COLUMN IF NOT EXISTS `body` VARCHAR(1000) NOT NULL DEFAULT '';
+ALTER TABLE `notification_histories`
+    ADD COLUMN IF NOT EXISTS `route` VARCHAR(512) NOT NULL DEFAULT '';

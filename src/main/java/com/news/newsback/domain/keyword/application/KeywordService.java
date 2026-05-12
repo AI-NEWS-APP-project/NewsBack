@@ -48,14 +48,8 @@ public class KeywordService {
     }
 
     public void unsubscribeKeyword(Long userId, Long keywordId) {
-        // Debugging log for userId and keywordId
-        System.out.println("User ID: " + userId);
-        System.out.println("Keyword ID: " + keywordId);
-
         Keyword keyword = keywordRepository.findById(keywordId)
                 .orElseThrow(() -> new BusinessException(KeywordErrorCode.KEYWORD_NOT_FOUND));
-
-        System.out.println("Found Keyword: " + keyword);
 
         if (!userKeywordRepository.existsByUserIdAndKeywordId(userId, keyword.getId())) {
             throw new BusinessException(KeywordErrorCode.KEYWORD_NOT_SUBSCRIBED);

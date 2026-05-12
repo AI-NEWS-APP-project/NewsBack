@@ -1,7 +1,7 @@
-package com.news.newsback.application.alarm;
+package com.news.newsback.application.notification;
 
-import com.news.newsback.domain.alarm.model.FcmToken;
-import com.news.newsback.domain.alarm.repository.FcmTokenRepository;
+import com.news.newsback.domain.notification.model.FcmToken;
+import com.news.newsback.domain.notification.repository.FcmTokenRepository;
 import com.news.newsback.domain.user.domain.User;
 import com.news.newsback.domain.user.domain.UserErrorCode;
 import com.news.newsback.domain.user.domain.UserRepository;

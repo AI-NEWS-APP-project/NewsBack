@@ -1,4 +1,4 @@
-package com.news.newsback.domain.alarm.model;
+package com.news.newsback.domain.notification.model;
 
 import com.news.newsback.domain.user.domain.User;
 import com.news.newsback.global.common.BaseTimeEntity;

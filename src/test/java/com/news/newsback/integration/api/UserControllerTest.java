@@ -19,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.jpa.mapping.JpaMetamodelMappingContext;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -44,6 +45,9 @@ class UserControllerTest {
 
     @MockBean
     UserService userService;
+
+    @MockBean
+    JpaMetamodelMappingContext jpaMetamodelMappingContext;
 
     @Nested
     @DisplayName("회원가입 API")
@@ -224,7 +228,6 @@ class UserControllerTest {
                 .id(1L)
                 .email("test@example.com")
                 .socialProvider(SocialProvider.LOCAL)
-                .fcmToken("new-fcm-token")
                 .globalPushEnabled(true)
                 .build();
 
@@ -296,7 +299,6 @@ class UserControllerTest {
                 .id(1L)
                 .email("test@example.com")
                 .socialProvider(SocialProvider.GOOGLE)
-                .fcmToken("fcm-token")
                 .globalPushEnabled(true)
                 .build();
             AuthResponse response = AuthResponse.builder()

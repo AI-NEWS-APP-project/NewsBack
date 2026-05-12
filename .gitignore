@@ -25,6 +25,7 @@ application-*.properties
 *.jks
 *.p12
 *.key
+*-firebase-adminsdk-*.json
 
 # --- Logs ---
 *.log

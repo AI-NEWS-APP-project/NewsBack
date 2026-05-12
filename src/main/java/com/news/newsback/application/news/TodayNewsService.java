@@ -15,8 +15,14 @@ public class TodayNewsService {
 
     private final TodayNewsSummaryRepository todayNewsSummaryRepository;
 
-    public TodayNewsResponse.Detail getLatestTodayNewsSummary() {
+    public TodayNewsResponse.Summary getLatestTodayNewsSummary() {
         return todayNewsSummaryRepository.findFirstByOrderByGeneratedAtDesc()
+                .map(TodayNewsResponse.Summary::from)
+                .orElseThrow(() -> new NewsException(NewsErrorCode.NEWS_NOT_FOUND));
+    }
+
+    public TodayNewsResponse.Detail getTodayNewsSummaryDetail(Long id) {
+        return todayNewsSummaryRepository.findWithSummaryNewsById(id)
                 .map(TodayNewsResponse.Detail::from)
                 .orElseThrow(() -> new NewsException(NewsErrorCode.NEWS_NOT_FOUND));
     }

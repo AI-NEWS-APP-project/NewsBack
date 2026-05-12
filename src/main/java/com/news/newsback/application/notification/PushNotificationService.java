@@ -1,12 +1,13 @@
-package com.news.newsback.application.alarm;
+package com.news.newsback.application.notification;
 
-import com.news.newsback.domain.alarm.model.FcmToken;
-import com.news.newsback.domain.alarm.model.NotificationHistory;
-import com.news.newsback.domain.alarm.repository.FcmTokenRepository;
-import com.news.newsback.domain.alarm.repository.NotificationHistoryRepository;
+import com.news.newsback.domain.notification.model.FcmToken;
+import com.news.newsback.domain.notification.model.NotificationHistory;
+import com.news.newsback.domain.notification.repository.FcmTokenRepository;
+import com.news.newsback.domain.notification.repository.NotificationHistoryRepository;
 import com.news.newsback.domain.keyword.domain.UserKeywordRepository;
 import com.news.newsback.domain.news.model.KeywordNews;
 import com.news.newsback.domain.news.model.TodayNewsSummary;
+import com.news.newsback.domain.news.repository.KeywordNewsRepository;
 import com.news.newsback.infra.fcm.FcmClient;
 import com.news.newsback.infra.fcm.FcmSendResult;
 import com.news.newsback.infra.fcm.PushMessage;
@@ -26,9 +27,12 @@ import java.util.stream.Collectors;
 @Transactional(readOnly = true)
 public class PushNotificationService {
 
+    private static final long TEST_PUSH_KEYWORD_NEWS_ID = 1L;
+
     private final FcmTokenRepository fcmTokenRepository;
     private final NotificationHistoryRepository notificationHistoryRepository;
     private final UserKeywordRepository userKeywordRepository;
+    private final KeywordNewsRepository keywordNewsRepository;
     private final FcmClient fcmClient;
 
     @Transactional
@@ -47,44 +51,35 @@ public class PushNotificationService {
         sendAndSaveKeywordHistories(tokens, buildKeywordNewsMessage(keywordNews), keywordNews);
     }
 
+    @Transactional
     public void sendTodayNewsSummary(TodayNewsSummary summary) {
         List<FcmToken> tokens = fcmTokenRepository.findAllEnabledTokensWithPushEnabled();
         send(tokens, buildTodayNewsMessage(summary));
     }
 
+    @Transactional
     public void sendToUser(Long userId, String title, String body) {
         List<FcmToken> tokens = fcmTokenRepository.findEnabledTokensByUserIdsWithPushEnabled(List.of(userId));
-        send(tokens, new PushMessage(
+        PushMessage message = new PushMessage(
                 title,
                 body,
                 Map.of(
                         "type", "TEST",
                         "route", "/"
                 )
-        ));
+        );
+        List<FcmSendResult> results = send(tokens, message);
+        saveTestPushHistories(tokens, results, message);
     }
 
     private void sendAndSaveKeywordHistories(List<FcmToken> tokens, PushMessage message, KeywordNews keywordNews) {
         List<FcmSendResult> results = send(tokens, message);
-        Map<String, FcmSendResult> resultByToken = results.stream()
-                .collect(Collectors.toMap(FcmSendResult::token, Function.identity()));
-
-        for (FcmToken token : tokens) {
-            FcmSendResult result = resultByToken.get(token.getToken());
-            if (result == null) {
-                continue;
-            }
-
-            if (result.success()) {
-                notificationHistoryRepository.save(NotificationHistory.success(token.getUser(), keywordNews));
-            } else {
-                notificationHistoryRepository.save(NotificationHistory.failure(token.getUser(), keywordNews, result.failureReason()));
-            }
-        }
+        saveHistories(tokens, results, message, keywordNews);
     }
 
     private List<FcmSendResult> send(List<FcmToken> tokens, PushMessage message) {
         if (tokens.isEmpty()) {
+            log.info("Skip push notification because no enabled FCM tokens found. title={}", message.title());
             return List.of();
         }
 
@@ -92,8 +87,75 @@ public class PushNotificationService {
                 .map(FcmToken::getToken)
                 .toList();
         List<FcmSendResult> results = fcmClient.sendToTokens(tokenValues, message);
+        long successCount = results.stream().filter(FcmSendResult::success).count();
+        long failureCount = results.size() - successCount;
+        log.info(
+                "Push notification requested. tokens={}, success={}, failure={}, title={}",
+                tokenValues.size(),
+                successCount,
+                failureCount,
+                message.title()
+        );
         disableInvalidTokens(tokens, results);
         return results;
+    }
+
+    private void saveTestPushHistories(List<FcmToken> tokens, List<FcmSendResult> results, PushMessage message) {
+        if (tokens.isEmpty() || results.isEmpty()) {
+            return;
+        }
+
+        keywordNewsRepository.findById(TEST_PUSH_KEYWORD_NEWS_ID).ifPresentOrElse(
+                keywordNews -> saveHistories(tokens, results, message, keywordNews),
+                () -> log.warn("Skip test push notification history because keywordNewsId={} does not exist.", TEST_PUSH_KEYWORD_NEWS_ID)
+        );
+    }
+
+    private void saveHistories(List<FcmToken> tokens, List<FcmSendResult> results, PushMessage message, KeywordNews keywordNews) {
+        Map<String, FcmSendResult> resultByToken = results.stream()
+                .collect(Collectors.toMap(FcmSendResult::token, Function.identity()));
+
+        Map<Long, List<FcmToken>> tokensByUser = tokens.stream()
+                .filter(token -> resultByToken.containsKey(token.getToken()))
+                .collect(Collectors.groupingBy(token -> token.getUser().getId()));
+
+        for (List<FcmToken> userTokens : tokensByUser.values()) {
+            FcmToken representativeToken = userTokens.get(0);
+            Long userId = representativeToken.getUser().getId();
+            if (notificationHistoryRepository.existsByUserIdAndKeywordNewsId(userId, keywordNews.getId())) {
+                continue;
+            }
+
+            List<FcmSendResult> userResults = userTokens.stream()
+                    .map(token -> resultByToken.get(token.getToken()))
+                    .toList();
+
+            if (userResults.stream().anyMatch(FcmSendResult::success)) {
+                notificationHistoryRepository.save(NotificationHistory.success(
+                        representativeToken.getUser(),
+                        keywordNews,
+                        message.title(),
+                        message.body(),
+                        message.data().get("route")
+                ));
+            } else {
+                notificationHistoryRepository.save(NotificationHistory.failure(
+                        representativeToken.getUser(),
+                        keywordNews,
+                        message.title(),
+                        message.body(),
+                        message.data().get("route"),
+                        summarizeFailureReasons(userResults)
+                ));
+            }
+        }
+    }
+
+    private String summarizeFailureReasons(List<FcmSendResult> results) {
+        return results.stream()
+                .map(FcmSendResult::failureReason)
+                .distinct()
+                .collect(Collectors.joining(","));
     }
 
     private void disableInvalidTokens(List<FcmToken> tokens, List<FcmSendResult> results) {
