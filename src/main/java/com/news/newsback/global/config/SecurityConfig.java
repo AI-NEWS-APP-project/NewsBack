@@ -27,6 +27,7 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthenticationFilter) throws Exception {
         http
@@ -54,7 +55,8 @@ public class SecurityConfig {
                 "http://127.0.0.1:*",
                 "https://*.ngrok-free.app",
                 "https://*.ngrok-free.dev",
-                "https://*.cloudtype.app"
+                "https://*.cloudtype.app",
+                "https://news-front-pi.vercel.app"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
@@ -66,7 +68,6 @@ public class SecurityConfig {
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
-
     @Bean
     public JwtAuthenticationFilter jwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider) {
         return new JwtAuthenticationFilter(jwtTokenProvider);
