@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS `users` (
 );
 
 -- 2. Keywords
-CREATE TABLE IF NOT EXISTS `keywords` (
+CREATE TABLE IF NOT EXISTS `keyword` (
     `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
     `name` VARCHAR(255) NOT NULL UNIQUE,
     `usage_count` INT NOT NULL DEFAULT 0,
@@ -22,15 +22,15 @@ CREATE TABLE IF NOT EXISTS `keywords` (
 );
 
 -- 3. User-Keywords
-CREATE TABLE IF NOT EXISTS `user_keywords` (
+CREATE TABLE IF NOT EXISTS `user_keyword` (
     `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
     `user_id` BIGINT NOT NULL,
     `keyword_id` BIGINT NOT NULL,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT `fk_user_keywords_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-    CONSTRAINT `fk_user_keywords_keyword` FOREIGN KEY (`keyword_id`) REFERENCES `keywords` (`id`) ON DELETE CASCADE,
-    CONSTRAINT `uk_user_keywords_user_keyword` UNIQUE (`user_id`, `keyword_id`)
+    CONSTRAINT `fk_user_keyword_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_user_keyword_keyword` FOREIGN KEY (`keyword_id`) REFERENCES `keyword` (`id`) ON DELETE CASCADE,
+    CONSTRAINT `uk_user_keyword_user_keyword` UNIQUE (`user_id`, `keyword_id`)
 );
 
 -- 4. News
@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS `keyword_news` (
     `summary_text` TEXT NOT NULL,
     `cluster_news_count` INT DEFAULT 1,
     `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT `fk_keyword_news_keyword` FOREIGN KEY (`keyword_id`) REFERENCES `keywords` (`id`) ON DELETE CASCADE
+    CONSTRAINT `fk_keyword_news_keyword` FOREIGN KEY (`keyword_id`) REFERENCES `keyword` (`id`) ON DELETE CASCADE
 );
 
 -- 7. Keyword News Links
@@ -149,9 +149,9 @@ ALTER TABLE `users`
     MODIFY COLUMN `global_push_enabled` BOOLEAN NOT NULL DEFAULT TRUE;
 ALTER TABLE `users`
     DROP COLUMN IF EXISTS `fcm_token`;
-CREATE INDEX IF NOT EXISTS `idx_user_keywords_user_id` ON `user_keywords` (`user_id`);
-CREATE INDEX IF NOT EXISTS `idx_user_keywords_keyword_id` ON `user_keywords` (`keyword_id`);
-CREATE UNIQUE INDEX IF NOT EXISTS `uk_user_keywords_user_keyword` ON `user_keywords` (`user_id`, `keyword_id`);
+CREATE INDEX IF NOT EXISTS `idx_user_keyword_user_id` ON `user_keyword` (`user_id`);
+CREATE INDEX IF NOT EXISTS `idx_user_keyword_keyword_id` ON `user_keyword` (`keyword_id`);
+CREATE UNIQUE INDEX IF NOT EXISTS `uk_user_keyword_user_keyword` ON `user_keyword` (`user_id`, `keyword_id`);
 SET @drop_cluster_news_keyword_fk = (
     SELECT IF(
         EXISTS (
