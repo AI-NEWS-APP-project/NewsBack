@@ -66,12 +66,38 @@ class NewsSummaryServiceTest {
         com.news.newsback.domain.news.model.News news = com.news.newsback.domain.news.model.News.create(
                 "제목", "본문", "https://news.example.com", "언론사", null, "ko", "KR", null, java.time.LocalDateTime.now());
 
-        when(clusterNewsRepository.findAllRequiringSummary(5)).thenReturn(List.of(clusterNews));
-        when(newsRepository.findAllByClusterIdOrderByPublishedAtDesc("cluster-1")).thenReturn(List.of(news));
+        when(clusterNewsRepository.findAllRequiringSummary(3)).thenReturn(List.of(clusterNews));
+        when(newsRepository.findTop5ByClusterIdOrderByPublishedAtDesc("cluster-1")).thenReturn(List.of(news));
 
         newsSummaryService.requestClusterSummaries();
 
         verify(aiClient).requestClusterNewsSummary(clusterNews, List.of(news));
+    }
+
+    @Test
+    @DisplayName("클러스터 요약 요청에는 최신 row news 최대 5개만 전송한다")
+    void 클러스터_요약_최신_5개만_요청() {
+        ClusterNews clusterNews = clusterNews("cluster-1", null, null);
+        List<com.news.newsback.domain.news.model.News> latestFiveNews = java.util.stream.IntStream.rangeClosed(1, 5)
+                .mapToObj(index -> com.news.newsback.domain.news.model.News.create(
+                        "제목" + index,
+                        "본문" + index,
+                        "https://news.example.com/" + index,
+                        "언론사",
+                        null,
+                        "ko",
+                        "KR",
+                        null,
+                        java.time.LocalDateTime.now().minusMinutes(index)
+                ))
+                .toList();
+
+        when(clusterNewsRepository.findAllRequiringSummary(3)).thenReturn(List.of(clusterNews));
+        when(newsRepository.findTop5ByClusterIdOrderByPublishedAtDesc("cluster-1")).thenReturn(latestFiveNews);
+
+        newsSummaryService.requestClusterSummaries();
+
+        verify(aiClient).requestClusterNewsSummary(clusterNews, latestFiveNews);
     }
 
     @Test
@@ -199,6 +225,38 @@ class NewsSummaryServiceTest {
         assertThat(captor.getValue())
                 .extracting(ClusterNews::getId)
                 .containsExactly("cluster-1", "cluster-2");
+    }
+
+    @Test
+    @DisplayName("키워드 요약 요청에는 매칭된 클러스터 뉴스 최대 10개만 전송한다")
+    void 키워드_요약_매칭_클러스터_최대_10개만_요청() {
+        Keyword keyword = keyword(1L, "AI");
+        List<ClusterNews> matchedClusters = java.util.stream.IntStream.rangeClosed(1, 12)
+                .mapToObj(index -> clusterNews("cluster-" + index, "AI 관련 뉴스 " + index, "AI 요약 " + index))
+                .toList();
+
+        when(keywordRepository.findAll()).thenReturn(List.of(keyword));
+        when(clusterNewsRepository.findAllByRepresentativeSummaryIsNotNull()).thenReturn(matchedClusters);
+
+        newsSummaryService.requestKeywordSummaries();
+
+        ArgumentCaptor<List<ClusterNews>> captor = ArgumentCaptor.forClass(List.class);
+        verify(aiClient).requestKeywordNewsSummary(org.mockito.Mockito.eq(keyword), captor.capture());
+        assertThat(captor.getValue())
+                .hasSize(10)
+                .extracting(ClusterNews::getId)
+                .containsExactly(
+                        "cluster-1",
+                        "cluster-2",
+                        "cluster-3",
+                        "cluster-4",
+                        "cluster-5",
+                        "cluster-6",
+                        "cluster-7",
+                        "cluster-8",
+                        "cluster-9",
+                        "cluster-10"
+                );
     }
 
     @Test
