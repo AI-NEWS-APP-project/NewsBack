@@ -120,6 +120,10 @@ CREATE TABLE IF NOT EXISTS `fcm_tokens` (
     CONSTRAINT `fk_fcm_tokens_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 );
 
+-- Remove legacy notification table if it exists. The application uses
+-- notification_histories via NotificationHistory.
+DROP TABLE IF EXISTS `notifications`;
+
 -- 12. Notification Histories
 CREATE TABLE IF NOT EXISTS `notification_histories` (
     `id` BIGINT AUTO_INCREMENT PRIMARY KEY,

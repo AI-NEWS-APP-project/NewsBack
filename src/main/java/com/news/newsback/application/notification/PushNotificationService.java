@@ -73,8 +73,8 @@ public class PushNotificationService {
     }
 
     private void sendAndSaveKeywordHistories(List<FcmToken> tokens, PushMessage message, KeywordNews keywordNews) {
-        List<FcmSendResult> results = send(tokens, message);
-        saveHistories(tokens, results, message, keywordNews);
+        send(tokens, message);
+        saveKeywordHistories(tokens, message, keywordNews);
     }
 
     private List<FcmSendResult> send(List<FcmToken> tokens, PushMessage message) {
@@ -148,6 +148,27 @@ public class PushNotificationService {
                         summarizeFailureReasons(userResults)
                 ));
             }
+        }
+    }
+
+    private void saveKeywordHistories(List<FcmToken> tokens, PushMessage message, KeywordNews keywordNews) {
+        Map<Long, List<FcmToken>> tokensByUser = tokens.stream()
+                .collect(Collectors.groupingBy(token -> token.getUser().getId()));
+
+        for (List<FcmToken> userTokens : tokensByUser.values()) {
+            FcmToken representativeToken = userTokens.get(0);
+            Long userId = representativeToken.getUser().getId();
+            if (notificationHistoryRepository.existsByUserIdAndKeywordNewsId(userId, keywordNews.getId())) {
+                continue;
+            }
+
+            notificationHistoryRepository.save(NotificationHistory.success(
+                    representativeToken.getUser(),
+                    keywordNews,
+                    message.title(),
+                    message.body(),
+                    message.data().get("route")
+            ));
         }
     }
 
