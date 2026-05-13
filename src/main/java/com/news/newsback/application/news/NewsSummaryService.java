@@ -26,7 +26,8 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public class NewsSummaryService {
 
-    private static final int CLUSTER_SUMMARY_NEWS_INCREMENT_THRESHOLD = 5;
+    private static final int CLUSTER_SUMMARY_NEWS_INCREMENT_THRESHOLD = 3;
+    private static final int KEYWORD_SUMMARY_CLUSTER_LIMIT = 10;
 
     private final KeywordRepository keywordRepository;
     private final ClusterNewsRepository clusterNewsRepository;
@@ -40,7 +41,7 @@ public class NewsSummaryService {
     public void requestClusterSummaries() {
         List<ClusterNews> targets = clusterNewsRepository.findAllRequiringSummary(CLUSTER_SUMMARY_NEWS_INCREMENT_THRESHOLD);
         for (ClusterNews cluster : targets) {
-            List<News> clusterNewsList = newsRepository.findAllByClusterIdOrderByPublishedAtDesc(cluster.getId());
+            List<News> clusterNewsList = newsRepository.findTop5ByClusterIdOrderByPublishedAtDesc(cluster.getId());
             if (!clusterNewsList.isEmpty()) {
                 aiClient.requestClusterNewsSummary(cluster, clusterNewsList);
                 log.info("Requested summary for cluster: {}", cluster.getId());
@@ -73,6 +74,7 @@ public class NewsSummaryService {
             List<ClusterNews> matchedClusters = searchableClusters.stream()
                     .filter(cluster -> cluster.contains(normalizedKeyword))
                     .map(SearchableClusterNews::clusterNews)
+                    .limit(KEYWORD_SUMMARY_CLUSTER_LIMIT)
                     .toList();
 
             if (!matchedClusters.isEmpty()) {

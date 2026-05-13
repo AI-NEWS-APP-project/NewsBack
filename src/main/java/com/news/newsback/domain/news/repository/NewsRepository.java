@@ -10,4 +10,5 @@ public interface NewsRepository extends JpaRepository<News, String> {
     boolean existsByUrl(String url);
     List<News> findAllByClusterIdIsNull();
     List<News> findAllByClusterIdOrderByPublishedAtDesc(String clusterId);
+    List<News> findTop5ByClusterIdOrderByPublishedAtDesc(String clusterId);
 }
