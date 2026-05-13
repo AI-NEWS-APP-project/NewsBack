@@ -44,7 +44,7 @@ public class AiServerClient implements AiClient {
                 .news(rowNewsList)
                 .build();
 
-        sendRequest("/ai/cluster-id", request);
+        sendRequest("/ai/cluster-id", requestId, callbackUrl, request);
     }
 
     @Override
@@ -63,7 +63,7 @@ public class AiServerClient implements AiClient {
                 .news(rowNewsList)
                 .build();
 
-        sendRequest("/ai/cluster-news", request);
+        sendRequest("/ai/cluster-news", requestId, callbackUrl, request);
     }
 
     @Override
@@ -87,7 +87,7 @@ public class AiServerClient implements AiClient {
                 .clusterNews(clusterItems)
                 .build();
 
-        sendRequest("/ai/keynews", request);
+        sendRequest("/ai/keynews", requestId, callbackUrl, request);
     }
 
     @Override
@@ -103,15 +103,15 @@ public class AiServerClient implements AiClient {
                 .timeWindowHours(timeWindowHours)
                 .build();
 
-        sendRequest("/ai/today-news", request);
+        sendRequest("/ai/today-news", requestId, callbackUrl, request);
     }
 
-    private void sendRequest(String path, Object request) {
+    private void sendRequest(String path, String requestId, String callbackUrl, Object request) {
         try {
             restTemplate.postForEntity(aiServerUrl + path, request, Void.class);
-            log.info("Sent request to AI server: {}", path);
+            log.info("Sent request to AI server. path={}, requestId={}, callbackUrl={}", path, requestId, callbackUrl);
         } catch (Exception e) {
-            log.error("Failed to send request to AI server: {}", path, e);
+            log.error("Failed to send request to AI server. path={}, requestId={}, callbackUrl={}", path, requestId, callbackUrl, e);
             throw new AiServerRequestException("AI server request failed: " + path, e);
         }
     }

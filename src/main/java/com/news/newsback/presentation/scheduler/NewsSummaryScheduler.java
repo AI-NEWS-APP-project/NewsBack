@@ -79,7 +79,7 @@ public class NewsSummaryScheduler {
     }
 
     // 일일 뉴스 요약 (매일 오전 8시, 오후 8시)
-    @Scheduled(cron = "0 0 8,17 * * *", zone = "Asia/Seoul")
+    @Scheduled(cron = "0 0 8,20 * * *", zone = "Asia/Seoul")
     //@Scheduled(cron = "0 0/2 * * * *")
     public void runTodayNewsSummary() {
         log.info("Starting today news summary process...");

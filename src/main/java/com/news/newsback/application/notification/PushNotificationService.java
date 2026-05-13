@@ -73,8 +73,17 @@ public class PushNotificationService {
     }
 
     private void sendAndSaveKeywordHistories(List<FcmToken> tokens, PushMessage message, KeywordNews keywordNews) {
-        send(tokens, message);
-        saveKeywordHistories(tokens, message, keywordNews);
+        int savedCount = saveKeywordHistories(tokens, message, keywordNews);
+        try {
+            send(tokens, message);
+        } catch (RuntimeException e) {
+            log.error(
+                    "Failed to send keyword news push after saving histories. keywordNewsId={}, savedHistories={}",
+                    keywordNews.getId(),
+                    savedCount,
+                    e
+            );
+        }
     }
 
     private List<FcmSendResult> send(List<FcmToken> tokens, PushMessage message) {
@@ -151,10 +160,11 @@ public class PushNotificationService {
         }
     }
 
-    private void saveKeywordHistories(List<FcmToken> tokens, PushMessage message, KeywordNews keywordNews) {
+    private int saveKeywordHistories(List<FcmToken> tokens, PushMessage message, KeywordNews keywordNews) {
         Map<Long, List<FcmToken>> tokensByUser = tokens.stream()
                 .collect(Collectors.groupingBy(token -> token.getUser().getId()));
 
+        int savedCount = 0;
         for (List<FcmToken> userTokens : tokensByUser.values()) {
             FcmToken representativeToken = userTokens.get(0);
             Long userId = representativeToken.getUser().getId();
@@ -169,7 +179,15 @@ public class PushNotificationService {
                     message.body(),
                     message.data().get("route")
             ));
+            savedCount++;
         }
+        log.info(
+                "Saved keyword news notification histories. keywordNewsId={}, targetUsers={}, saved={}",
+                keywordNews.getId(),
+                tokensByUser.size(),
+                savedCount
+        );
+        return savedCount;
     }
 
     private String summarizeFailureReasons(List<FcmSendResult> results) {
