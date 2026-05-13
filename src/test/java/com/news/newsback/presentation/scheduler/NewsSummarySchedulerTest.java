@@ -13,6 +13,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 @ExtendWith(MockitoExtension.class)
@@ -45,6 +46,31 @@ class NewsSummarySchedulerTest {
         verify(schedulerErrorLogService).record(
                 eq("NewsSummaryScheduler"),
                 eq("processUnclusteredNews"),
+                same(error),
+                isNull()
+        );
+        verify(newsSummaryService, never()).requestKeywordSummaries();
+    }
+
+    @Test
+    @DisplayName("키워드 요약은 독립 스케줄에서 실행한다")
+    void 키워드_요약_독립_스케줄_실행() {
+        newsSummaryScheduler.runKeywordNewsSummary();
+
+        verify(newsSummaryService).requestKeywordSummaries();
+    }
+
+    @Test
+    @DisplayName("키워드 요약 요청 실패 시 스케줄러 에러 로그를 저장한다")
+    void 키워드_요약_요청_실패_로그_저장() {
+        IllegalStateException error = new IllegalStateException("keyword summary failed");
+        doThrow(error).when(newsSummaryService).requestKeywordSummaries();
+
+        newsSummaryScheduler.runKeywordNewsSummary();
+
+        verify(schedulerErrorLogService).record(
+                eq("NewsSummaryScheduler"),
+                eq("requestKeywordSummaries"),
                 same(error),
                 isNull()
         );
