@@ -64,7 +64,12 @@ public class NewsSummaryScheduler {
             recordError("requestClusterSummaries", e, null);
         }
 
-        // 키워드 요약
+    }
+
+    // 30분 간격으로 실행하되 수집/클러스터링 스케줄과 겹치지 않도록 5분 offset
+    @Scheduled(cron = "0 5/30 * * * *")
+    public void runKeywordNewsSummary() {
+        log.info("Starting keyword news summary process...");
         try {
             newsSummaryService.requestKeywordSummaries();
         } catch (Exception e) {
@@ -75,7 +80,7 @@ public class NewsSummaryScheduler {
 
     // 일일 뉴스 요약 (매일 오전 8시, 오후 8시)
     //FIXME: 테스트용 임시 cron(2분 간격 요청)
-    @Scheduled(cron = "0 0 8,16 * * *")
+    @Scheduled(cron = "0 0 8,17 * * *")
     //@Scheduled(cron = "0 0/2 * * * *")
     public void runTodayNewsSummary() {
         log.info("Starting today news summary process...");

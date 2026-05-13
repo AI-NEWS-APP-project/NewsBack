@@ -1,11 +1,11 @@
 package com.news.newsback.presentation.controller.callback;
 
-import com.news.newsback.application.news.NewsClusteringService;
-import com.news.newsback.application.news.NewsSummaryService;
+import com.news.newsback.application.news.AiCallbackProcessingService;
 import com.news.newsback.infra.ai.AiResponse;
 import io.swagger.v3.oas.annotations.Hidden;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,30 +18,33 @@ import org.springframework.web.bind.annotation.RestController;
 @RequiredArgsConstructor
 public class AiCallbackController {
 
-    private final NewsClusteringService newsClusteringService;
-    private final NewsSummaryService newsSummaryService;
+    private final AiCallbackProcessingService aiCallbackProcessingService;
 
     @PostMapping("/cluster-id")
-    public void clusterIdCallback(@RequestBody AiResponse.ClusterIdResponse response) {
+    public ResponseEntity<Void> clusterIdCallback(@RequestBody AiResponse.ClusterIdResponse response) {
         log.info("Received cluster-id callback: {}", response.getRequestId());
-        newsClusteringService.updateClusterIds(response);
+        aiCallbackProcessingService.processClusterId(response);
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/cluster-news")
-    public void clusterNewsCallback(@RequestBody AiResponse.ClusterNewsSummaryResponse response) {
+    public ResponseEntity<Void> clusterNewsCallback(@RequestBody AiResponse.ClusterNewsSummaryResponse response) {
         log.info("Received cluster-news callback: {}", response.getRequestId());
-        newsSummaryService.updateClusterNewsSummary(response);
+        aiCallbackProcessingService.processClusterNews(response);
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/keynews")
-    public void keyNewsCallback(@RequestBody AiResponse.KeywordNewsResponse response) {
+    public ResponseEntity<Void> keyNewsCallback(@RequestBody AiResponse.KeywordNewsResponse response) {
         log.info("Received keynews callback: {}", response.getRequestId());
-        newsSummaryService.saveKeywordNews(response);
+        aiCallbackProcessingService.processKeywordNews(response);
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/today-news")
-    public void todayNewsCallback(@RequestBody AiResponse.TodayNewsResponse response) {
+    public ResponseEntity<Void> todayNewsCallback(@RequestBody AiResponse.TodayNewsResponse response) {
         log.info("Received today-news callback: {}", response.getRequestId());
-        newsSummaryService.saveTodayNewsSummary(response);
+        aiCallbackProcessingService.processTodayNews(response);
+        return ResponseEntity.ok().build();
     }
 }
