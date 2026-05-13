@@ -1,5 +1,6 @@
 package com.news.newsback.presentation.scheduler;
 
+import com.news.newsback.application.scheduler.SchedulerErrorLogService;
 import com.news.newsback.application.news.NewsClusteringService;
 import com.news.newsback.application.news.NewsGatheringService;
 import com.news.newsback.application.news.NewsSummaryService;
@@ -19,6 +20,7 @@ public class NewsSummaryScheduler {
     private final NewsGatheringService newsGatheringService;
     private final NewsClusteringService newsClusteringService;
     private final NewsSummaryService newsSummaryService;
+    private final SchedulerErrorLogService schedulerErrorLogService;
 
     private static final List<NewsSource> TARGET_SOURCES = List.of(
             new NewsSource("연합뉴스TV", "국내 뉴스", "https://www.yonhapnewstv.co.kr/browse/feed/", "ko", "KR"),
@@ -42,6 +44,7 @@ public class NewsSummaryScheduler {
                 newsGatheringService.gatherNewsFromRss(source);
             } catch (Exception e) {
                 log.error("Failed to gather news from source: {}", source.name(), e);
+                recordError("gatherNewsFromRss", e, "source=" + source.name() + ", rssUrl=" + source.url());
             }
         }
 
@@ -50,6 +53,7 @@ public class NewsSummaryScheduler {
             newsClusteringService.processUnclusteredNews();
         } catch (Exception e) {
             log.error("Failed to request clustering", e);
+            recordError("processUnclusteredNews", e, null);
         }
 
         // 클러스터 요약 -> 메모리
@@ -57,6 +61,7 @@ public class NewsSummaryScheduler {
             newsSummaryService.requestClusterSummaries();
         } catch (Exception e) {
             log.error("Failed to request cluster summaries", e);
+            recordError("requestClusterSummaries", e, null);
         }
 
         // 키워드 요약
@@ -64,12 +69,13 @@ public class NewsSummaryScheduler {
             newsSummaryService.requestKeywordSummaries();
         } catch (Exception e) {
             log.error("Failed to request keyword summaries", e);
+            recordError("requestKeywordSummaries", e, null);
         }
     }
 
     // 일일 뉴스 요약 (매일 오전 8시, 오후 8시)
     //FIXME: 테스트용 임시 cron(2분 간격 요청)
-    @Scheduled(cron = "0 0 8,20 * * *")
+    @Scheduled(cron = "0 0 8,16 * * *")
     //@Scheduled(cron = "0 0/2 * * * *")
     public void runTodayNewsSummary() {
         log.info("Starting today news summary process...");
@@ -77,6 +83,11 @@ public class NewsSummaryScheduler {
             newsSummaryService.requestTodaySummary();
         } catch (Exception e) {
             log.error("Failed to request today news summary", e);
+            recordError("requestTodaySummary", e, null);
         }
+    }
+
+    private void recordError(String methodName, Exception error, String context) {
+        schedulerErrorLogService.record("NewsSummaryScheduler", methodName, error, context);
     }
 }

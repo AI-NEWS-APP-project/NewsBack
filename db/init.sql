@@ -137,6 +137,20 @@ CREATE TABLE IF NOT EXISTS `notification_histories` (
     CONSTRAINT `fk_notification_histories_keyword_news` FOREIGN KEY (`keyword_news_id`) REFERENCES `keyword_news` (`id`) ON DELETE CASCADE
 );
 
+-- 13. Scheduler Error Logs
+CREATE TABLE IF NOT EXISTS `scheduler_error_logs` (
+    `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
+    `scheduler_name` VARCHAR(100) NOT NULL,
+    `method_name` VARCHAR(150) NOT NULL,
+    `error_type` VARCHAR(255) NOT NULL,
+    `error_message` TEXT NULL,
+    `stack_trace` TEXT NULL,
+    `context` TEXT NULL,
+    `occurred_at` DATETIME NOT NULL,
+    INDEX `idx_scheduler_error_logs_occurred_at` (`occurred_at`),
+    INDEX `idx_scheduler_error_logs_method_name` (`method_name`)
+);
+
 -- Backfill / migration-safe alters for existing environments.
 -- Note: docker-entrypoint-initdb.d scripts run only on first DB volume initialization.
 ALTER TABLE `users`
