@@ -172,8 +172,31 @@ public class NewsSummaryService {
             newsRepository.findById(newsId).ifPresent(summary::addNews);
         }
 
-        todayNewsSummaryRepository.save(summary);
+        TodayNewsSummary savedSummary = todayNewsSummaryRepository.save(summary);
+        requestTodayNewsPushAfterCommit(savedSummary);
         log.info("Saved today news summary: {}", summary.getTitle());
+    }
+
+    private void requestTodayNewsPushAfterCommit(TodayNewsSummary summary) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            sendTodayNewsPush(summary);
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                sendTodayNewsPush(summary);
+            }
+        });
+    }
+
+    private void sendTodayNewsPush(TodayNewsSummary summary) {
+        try {
+            pushNotificationService.sendTodayNewsSummary(summary);
+        } catch (Exception e) {
+            log.error("Failed to send today news push notification. summaryId={}", summary.getId(), e);
+        }
     }
 
     private record SearchableClusterNews(ClusterNews clusterNews, String searchableText) {

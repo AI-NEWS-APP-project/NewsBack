@@ -77,4 +77,30 @@ class AiCallbackControllerTest {
                 response.getRequestId().equals("request-1")
         ));
     }
+
+    @Test
+    @DisplayName("today-news callback은 비동기 처리로 위임하고 즉시 200을 반환한다")
+    void today_news_callback_즉시_응답() throws Exception {
+        mockMvc.perform(post("/callback/today-news")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "request_id": "request-1",
+                                  "status": "success",
+                                  "title": "최근 주요 뉴스 종합",
+                                  "summary": "일일 요약",
+                                  "news_ids": [101, 102],
+                                  "news_count": 2,
+                                  "generated_at": "2026-05-13T20:00:00"
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        verify(aiCallbackProcessingService).processTodayNews(argThat(response ->
+                response.getRequestId().equals("request-1")
+                        && response.getStatus().equals("success")
+                        && response.getNewsIds().contains("101")
+                        && response.getNewsIds().contains("102")
+        ));
+    }
 }

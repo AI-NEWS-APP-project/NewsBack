@@ -25,7 +25,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -175,14 +177,16 @@ class NewsSummaryServiceTest {
     }
 
     @Test
-    @DisplayName("일일 뉴스 요약 callback 성공 시 요약과 관련 뉴스를 저장한다")
-    void 일일_뉴스_요약_callback_성공_저장() {
+    @DisplayName("일일 뉴스 요약 callback 성공 시 요약과 관련 뉴스를 저장하고 푸시 알림을 요청한다")
+    void 일일_뉴스_요약_callback_성공_저장_푸시_알림_요청() {
         com.news.newsback.domain.news.model.News news = com.news.newsback.domain.news.model.News.create(
                 "제목", "본문", "https://news.example.com", "언론사", null, "ko", "KR", null, java.time.LocalDateTime.now());
         AiResponse.TodayNewsResponse response = new AiResponse.TodayNewsResponse(
                 "request-id", "success", "최근 주요 뉴스 종합", "일일 요약", List.of(news.getId()), 1, "2026-04-28T20:00:00");
 
         when(newsRepository.findById(news.getId())).thenReturn(Optional.of(news));
+        when(todayNewsSummaryRepository.save(org.mockito.Mockito.any(com.news.newsback.domain.news.model.TodayNewsSummary.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
 
         newsSummaryService.saveTodayNewsSummary(response);
 
@@ -193,6 +197,26 @@ class NewsSummaryServiceTest {
         assertThat(captor.getValue().getSummary()).isEqualTo("일일 요약");
         assertThat(captor.getValue().getNewsCount()).isEqualTo(1);
         assertThat(captor.getValue().getSummaryNews()).hasSize(1);
+        verify(pushNotificationService).sendTodayNewsSummary(captor.getValue());
+    }
+
+    @Test
+    @DisplayName("일일 뉴스 요약 푸시 알림 실패는 요약 저장을 실패시키지 않는다")
+    void 일일_뉴스_요약_푸시_알림_실패_저장_유지() {
+        AiResponse.TodayNewsResponse response = new AiResponse.TodayNewsResponse(
+                "request-id", "success", "최근 주요 뉴스 종합", "일일 요약", List.of(), 0, "2026-04-28T20:00:00");
+
+        when(todayNewsSummaryRepository.save(org.mockito.Mockito.any(com.news.newsback.domain.news.model.TodayNewsSummary.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        doThrow(new RuntimeException("fcm unavailable"))
+                .when(pushNotificationService)
+                .sendTodayNewsSummary(org.mockito.Mockito.any(com.news.newsback.domain.news.model.TodayNewsSummary.class));
+
+        assertThatCode(() -> newsSummaryService.saveTodayNewsSummary(response))
+                .doesNotThrowAnyException();
+
+        verify(todayNewsSummaryRepository).save(org.mockito.Mockito.any(com.news.newsback.domain.news.model.TodayNewsSummary.class));
+        verify(pushNotificationService).sendTodayNewsSummary(org.mockito.Mockito.any(com.news.newsback.domain.news.model.TodayNewsSummary.class));
     }
 
     @Test

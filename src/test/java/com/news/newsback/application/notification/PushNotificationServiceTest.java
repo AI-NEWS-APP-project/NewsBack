@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -129,7 +130,7 @@ class PushNotificationServiceTest {
     }
 
     @Test
-    @DisplayName("키워드 뉴스 알림 실패 토큰은 비활성화하고 실패 이력을 저장한다")
+    @DisplayName("키워드 뉴스 알림 실패 토큰은 비활성화하고 인앱 이력은 저장한다")
     void 키워드_뉴스_알림_실패_토큰_처리() {
         KeywordNews keywordNews = keywordNews(31L, keyword(9L, "AI"));
         User user = user(1L, true);
@@ -150,9 +151,57 @@ class PushNotificationServiceTest {
                         && history.getTitle().equals("'AI' 새 뉴스 요약")
                         && history.getBody().equals("관련 클러스터 3개를 바탕으로 새 요약이 생성됐습니다.")
                         && history.getRoute().equals("/news/keyword-news/31")
-                        && !history.isSuccess()
-                        && history.getFailureReason().equals("UNREGISTERED")
+                        && history.isSuccess()
+                        && history.getFailureReason() == null
         ));
+    }
+
+    @Test
+    @DisplayName("키워드 뉴스 알림 발송 결과가 비어도 대상 사용자 인앱 이력은 저장한다")
+    void 키워드_뉴스_알림_빈_발송_결과_이력_저장() {
+        KeywordNews keywordNews = keywordNews(31L, keyword(9L, "AI"));
+        User user = user(1L, true);
+        FcmToken token = FcmToken.create(user, "token-1");
+
+        when(userKeywordRepository.findByKeywordId(9L)).thenReturn(List.of(new UserKeyword(1L, keywordNews.getKeyword())));
+        when(notificationHistoryRepository.existsByUserIdAndKeywordNewsId(1L, 31L)).thenReturn(false);
+        when(fcmTokenRepository.findEnabledTokensByUserIdsWithPushEnabled(List.of(1L))).thenReturn(List.of(token));
+        when(fcmClient.sendToTokens(eq(List.of("token-1")), any(PushMessage.class)))
+                .thenReturn(List.of());
+
+        pushNotificationService.sendKeywordNews(keywordNews);
+
+        verify(notificationHistoryRepository).save(argThat(history ->
+                history.getUser().equals(user)
+                        && history.getKeywordNews().equals(keywordNews)
+                        && history.getTitle().equals("'AI' 새 뉴스 요약")
+                        && history.getRoute().equals("/news/keyword-news/31")
+                        && history.isSuccess()
+        ));
+    }
+
+    @Test
+    @DisplayName("키워드 뉴스 이력 저장 후 FCM 예외가 발생해도 예외를 전파하지 않는다")
+    void 키워드_뉴스_알림_FCM_예외_이력_유지() {
+        KeywordNews keywordNews = keywordNews(31L, keyword(9L, "AI"));
+        User user = user(1L, true);
+        FcmToken token = FcmToken.create(user, "token-1");
+
+        when(userKeywordRepository.findByKeywordId(9L)).thenReturn(List.of(new UserKeyword(1L, keywordNews.getKeyword())));
+        when(notificationHistoryRepository.existsByUserIdAndKeywordNewsId(1L, 31L)).thenReturn(false);
+        when(fcmTokenRepository.findEnabledTokensByUserIdsWithPushEnabled(List.of(1L))).thenReturn(List.of(token));
+        when(fcmClient.sendToTokens(eq(List.of("token-1")), any(PushMessage.class)))
+                .thenThrow(new RuntimeException("fcm unavailable"));
+
+        assertThatCode(() -> pushNotificationService.sendKeywordNews(keywordNews))
+                .doesNotThrowAnyException();
+
+        verify(notificationHistoryRepository).save(argThat(history ->
+                history.getUser().equals(user)
+                        && history.getKeywordNews().equals(keywordNews)
+                        && history.isSuccess()
+        ));
+        verify(fcmClient).sendToTokens(eq(List.of("token-1")), any(PushMessage.class));
     }
 
     @Test
